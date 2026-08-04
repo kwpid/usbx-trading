@@ -9,6 +9,26 @@ export async function fetchItemFromApiAction(itemId: string) {
   return { error: 'API integration coming soon. Please use custom upload for testing.', success: false };
 }
 
+// Site-wide maintenance mode — gated in proxy.ts for every non-admin visitor,
+// toggled here so it doesn't require a redeploy to flip on/off.
+export async function setMaintenanceMode(enabled: boolean) {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false };
+  }
+
+  const { error } = await supabase
+    .from('site_settings')
+    .update({ maintenance_mode: enabled })
+    .eq('id', 1);
+
+  if (error) {
+    return { error: error.message, success: false };
+  }
+
+  revalidatePath('/');
+  return { success: true };
+}
+
 export async function saveItemAction(item: any) {
   if (!(await requireAdmin())) {
     return { error: 'Admins only.', success: false };
