@@ -19,7 +19,18 @@ export class UsbxApiError extends Error {
 }
 
 async function usbxGetRaw(path: string): Promise<any> {
-  const res = await fetch(`${USBX_ORIGIN}${path}`, { cache: 'no-store' });
+  const res = await fetch(`${USBX_ORIGIN}${path}`, {
+    cache: 'no-store',
+    headers: {
+      // Serverless/edge fetches otherwise carry no User-Agent at all, which
+      // is an easy bot-protection tripwire (Cloudflare, etc.) — send
+      // something that reads as an ordinary browser request.
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      Accept: 'application/json, text/plain, */*',
+      Referer: `${USBX_ORIGIN}/`,
+    },
+  });
   if (!res.ok) {
     throw new UsbxApiError(res.status, path);
   }
