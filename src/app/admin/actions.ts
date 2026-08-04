@@ -1,159 +1,19 @@
 'use server'
 
-import * as cheerio from 'cheerio';
 import { supabase } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/roles';
+import { fetchItemFullDetails, extractUsbxItemId } from '@/lib/usbxApi';
 import { revalidatePath } from 'next/cache';
-
-export async function fetchPreviewAction(url: string) {
-  if (!url) {
-    return { error: 'URL is required', success: false };
-  }
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      }
-    });
-
-    if (!response.ok) {
-      return { error: `Failed to fetch URL: ${response.statusText}`, success: false };
-    }
-
-    const html = await response.text();
-    const $ = cheerio.load(html);
-
-
-
-    // DOM Extraction based on specific HTML structure
-    const domName = $('div.mb-1.text-2xl.font-semibold').first().text().trim();
-    const domImageUrl = $('img[src*="renders/items"]').first().attr('src');
-    const domDescription = $('p.mb-3.text-sm.text-neutral-300').first().text().trim();
-    
-    // For creator, look for links that might represent a user or just text after 'By'
-    let domCreator = 'USBX'; // Default to USBX
-    $('div, span, p, a').each((i, el) => {
-      const text = $(el).text().trim();
-      if (text.startsWith('By') && text.length < 30) {
-        const potentialCreator = text.replace('By', '').trim();
-        if (potentialCreator) domCreator = potentialCreator;
-      }
-    });
-
-    let domSold = 0;
-    $('div, span, p').each((i, el) => {
-      const text = $(el).text().trim();
-      if (text.startsWith('Sold:')) {
-        const numMatch = text.match(/Sold:\s*(\d+)/);
-        if (numMatch) domSold = parseInt(numMatch[1], 10);
-      }
-    });
-
-    // Count copies/owners by looking at the highest serial number
-    let maxSerial = 0;
-    $('span[class*="serial-inline"]').each((i, el) => {
-      const text = $(el).text().replace('#', '').trim();
-      const num = parseInt(text, 10);
-      if (!isNaN(num) && num > maxSerial) {
-        maxSerial = num;
-      }
-    });
-    
-    // If no serials found, rely on domSold
-    const domCopies = maxSerial > 0 ? maxSerial : domSold;
-
-    // RAP Calculation from Recent Sales
-    // Look through sales rows (rounded border containers)
-    let validResalePrices: number[] = [];
-    $('.rounded.border.border-neutral-800').each((i, el) => {
-      const text = $(el).text();
-      // Check if it's a sale row
-      if (text.includes('Buyer:') && text.includes('Seller:')) {
-        const sellerMatch = text.match(/Seller:\s*([^\s<]+)/);
-        if (sellerMatch && sellerMatch[1] !== 'Store') {
-          // It's a resell, extract price
-          const priceText = $(el).find('.currency-chip').text().replace(/,/g, '').trim();
-          const price = parseInt(priceText, 10);
-          if (!isNaN(price)) {
-            validResalePrices.push(price);
-          }
-        }
-      }
-    });
-
-    let rap = 0;
-    if (validResalePrices.length > 0) {
-      const sum = validResalePrices.reduce((a, b) => a + b, 0);
-      rap = Math.floor(sum / validResalePrices.length);
-    }
-
-    // Extract from SvelteKit data as a backup
-    let itemDataString = '';
-    $('script').each((i, el) => {
-      const content = $(el).html() || '';
-      if (content.includes('storeItem:') || content.includes('item:{')) {
-        itemDataString += content;
-      }
-    });
-
-    let svelteName = '';
-    const nameMatches = [...itemDataString.matchAll(/name:"([^"]+)"/g)];
-    for (const match of nameMatches) {
-      if (match[1] !== 'USBX Store' && match[1] !== 'Scrips') {
-        svelteName = match[1];
-        break;
-      }
-    }
-
-    const creatorMatch = itemDataString.match(/username:"([^"]+)"/);
-    const imageUrlMatch = itemDataString.match(/imageUrl:"(renders\/items\/[^"]+)"/);
-    const isLimitedMatch = itemDataString.match(/isLimited:(true|false)/);
-    const isWearableMatch = itemDataString.match(/isWearable:(true|false)/);
-    const priceMatch = itemDataString.match(/price:(\d+)/);
-
-    // Combine DOM and Svelte data, prioritizing DOM if it's explicitly found
-    const name = domName || svelteName || 'Unknown Item';
-    const creator = domCreator || (creatorMatch ? creatorMatch[1] : 'Unknown Creator');
-    const item_image_url = domImageUrl || (imageUrlMatch ? `https://assets.unsbx.org/${imageUrlMatch[1]}` : '');
-    const description = domDescription || '';
-    
-    // Check wearable/limited from breadcrumbs or tags
-    const domTextHtml = $('body').text();
-    const is_limited = domTextHtml.includes('LIMITED') || domTextHtml.includes('Limited') || (isLimitedMatch ? isLimitedMatch[1] === 'true' : false);
-    const is_wearable = domTextHtml.includes('Wearable') || domTextHtml.includes('WEARABLE') || (isWearableMatch ? isWearableMatch[1] === 'true' : false);
-    
-    const price_best_resale = priceMatch ? parseInt(priceMatch[1]) : 0;
-    
-    // Available owners logic
-    const available_owners = domCopies;
-
-    // Create the preview object
-    const previewItem = {
-      name: name,
-      creator: creator,
-      description: description,
-      item_image_url: item_image_url,
-      is_limited: is_limited,
-      is_wearable: is_wearable,
-      price_best_resale: price_best_resale,
-      rap: rap, // Calculated from valid resales
-      value: 0, // Explicitly set to 0 as requested
-      available_owners: available_owners,
-      premium_copies: 0, // Mocked for now
-    };
-
-    return { 
-      success: true, 
-      preview: previewItem
-    };
-
-  } catch (err: any) {
-    console.error('Scraping error:', err);
-    return { error: err.message || 'An unexpected error occurred during scraping', success: false };
-  }
+export async function fetchItemFromApiAction(itemId: string) {
+  // Placeholder for future API integration
+  return { error: 'API integration coming soon. Please use custom upload for testing.', success: false };
 }
 
 export async function saveItemAction(item: any) {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false };
+  }
+
   try {
     const { data, error } = await supabase
       .from('items')
@@ -176,5 +36,269 @@ export async function saveItemAction(item: any) {
   } catch (err: any) {
     console.error('Save error:', err);
     return { error: err.message || 'An unexpected error occurred during saving', success: false };
+  }
+}
+
+// Re-pulls RAP/Value/Price/owners from USBX for an item that was originally
+// added via the link scraper, so prices stay in sync as items resell.
+export async function refreshItemPricing(itemId: string) {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false };
+  }
+
+  const { data: item, error: fetchError } = await supabase
+    .from('items')
+    .select('source_url, is_limited')
+    .eq('id', itemId)
+    .single();
+
+  if (fetchError || !item?.source_url) {
+    return { error: 'This item has no USBX source link to refresh from.', success: false };
+  }
+
+  if (!item.is_limited) {
+    return { error: "This item isn't limited — USBX doesn't track RAP/resale data for it, so there's nothing to refresh.", success: false };
+  }
+
+  const usbxItemId = extractUsbxItemId(item.source_url);
+  if (!usbxItemId) {
+    return { error: 'Could not parse the USBX item ID from the saved source link.', success: false };
+  }
+
+  try {
+    const details = await fetchItemFullDetails(usbxItemId);
+    // Value is never touched here — it's managed manually via this site's
+    // own value-changes tracking, not overwritten by whatever USBX reports.
+    const updates: Record<string, any> = { available_owners: details.uniqueOwners };
+    if (details.rapScrips !== null) updates.rap = details.rapScrips;
+    if (details.priceScrips !== null) updates.price_best_resale = details.priceScrips;
+    if (details.copiesSold !== null) updates.copies_sold = details.copiesSold;
+
+    const { data, error } = await supabase
+      .from('items')
+      .update(updates)
+      .eq('id', itemId)
+      .select();
+
+    if (error) {
+      return { error: `Database error: ${error.message}`, success: false };
+    }
+
+    revalidatePath('/');
+    revalidatePath('/market');
+    revalidatePath(`/items/${itemId}`);
+
+    return { success: true, item: data[0] };
+  } catch (err: any) {
+    return { error: err.message || 'Could not refresh pricing from USBX.', success: false };
+  }
+}
+
+export async function updateItemAction(itemId: string, updates: any) {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('items')
+      .update(updates)
+      .eq('id', itemId)
+      .select();
+
+    if (error) {
+      console.error("Supabase error updating:", error);
+      return { error: `Database error: ${error.message}`, success: false };
+    }
+
+    revalidatePath('/');
+    revalidatePath('/market');
+    revalidatePath(`/items/${itemId}`);
+
+    return { 
+      success: true, 
+      message: `Successfully updated!`,
+      item: data[0]
+    };
+  } catch (err: any) {
+    console.error('Update error:', err);
+    return { error: err.message || 'An unexpected error occurred during update', success: false };
+  }
+}
+
+export async function updateItemValueAction(itemId: string, data: { value: number, trend: string, demand: string, reason: string }) {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false };
+  }
+
+  try {
+    // 1. Fetch current item state
+    const { data: item, error: fetchErr } = await supabase
+      .from('items')
+      .select('value, trend, demand, rap, available_owners, copies_sold, price_best_resale, name, item_image_url')
+      .eq('id', itemId)
+      .single();
+
+    if (fetchErr) {
+      return { error: `Item not found: ${fetchErr.message}`, success: false };
+    }
+
+    const updates: any = {};
+    const changesToLog = [];
+
+    // Compare Value
+    if (data.value !== item.value) {
+      updates.value = data.value;
+      changesToLog.push({
+        item_id: itemId,
+        type: 'Value Changed',
+        old_val: String(item.value || 0),
+        new_val: String(data.value),
+        is_increase: data.value > (item.value || 0),
+        reason: data.reason,
+      });
+    }
+
+    // Compare Trend
+    const currentTrend = item.trend || 'Stable';
+    if (data.trend !== currentTrend) {
+      updates.trend = data.trend;
+      changesToLog.push({
+        item_id: itemId,
+        type: 'Trend Changed',
+        old_val: currentTrend,
+        new_val: data.trend,
+        is_increase: true,
+        reason: data.reason,
+      });
+    }
+
+    // Compare Demand
+    const currentDemand = item.demand || 'Normal';
+    if (data.demand !== currentDemand) {
+      updates.demand = data.demand;
+      changesToLog.push({
+        item_id: itemId,
+        type: 'Demand Changed',
+        old_val: currentDemand,
+        new_val: data.demand,
+        is_increase: true,
+        reason: data.reason,
+      });
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return { error: 'No changes were detected.', success: false };
+    }
+
+    // 2. Update item
+    const { error: updateErr } = await supabase
+      .from('items')
+      .update(updates)
+      .eq('id', itemId);
+
+    if (updateErr) {
+      return { error: `Failed to update item: ${updateErr.message}`, success: false };
+    }
+
+    // 3. Log changes
+    if (changesToLog.length > 0) {
+      const { error: logErr } = await supabase
+        .from('item_value_changes')
+        .insert(changesToLog);
+      
+      if (logErr) {
+        console.error("Failed to log value changes:", logErr);
+      }
+    }
+
+    // 4. Update chart history if value changed
+    if (updates.value !== undefined) {
+      const { error: histErr } = await supabase
+        .from('item_price_history')
+        .insert({
+          item_id: itemId,
+          rap: item.rap,
+          value: updates.value,
+          price_best_resale: item.price_best_resale,
+          available_owners: item.available_owners,
+          copies_sold: item.copies_sold,
+        });
+
+      if (histErr) {
+        console.error("Failed to insert price history snapshot:", histErr);
+      }
+    }
+      
+    // Discord Webhook
+    const embeds = [];
+
+    if (updates.value !== undefined) {
+      embeds.push({
+        title: `Value Update: ${item.name}`,
+        url: `https://usbx.trade/items/${itemId}`,
+        color: updates.value > (item.value || 0) ? 0x22c55e : 0xef4444, // Green for increase, Red for decrease
+        thumbnail: item.item_image_url ? { url: item.item_image_url } : undefined,
+        fields: [
+          { name: 'Old Value', value: String(item.value || 0), inline: true },
+          { name: 'New Value', value: String(updates.value), inline: true },
+          { name: 'Reason', value: data.reason || 'No reason provided.' }
+        ]
+      });
+    }
+
+    if (updates.trend !== undefined) {
+      embeds.push({
+        title: `Trend Update: ${item.name}`,
+        url: `https://usbx.trade/items/${itemId}`,
+        color: 0x3b82f6,
+        thumbnail: item.item_image_url ? { url: item.item_image_url } : undefined,
+        fields: [
+          { name: 'Old Trend', value: item.trend || 'Stable', inline: true },
+          { name: 'New Trend', value: updates.trend, inline: true },
+          { name: 'Reason', value: data.reason || 'No reason provided.' }
+        ]
+      });
+    }
+
+    if (updates.demand !== undefined) {
+      embeds.push({
+        title: `Demand Update: ${item.name}`,
+        url: `https://usbx.trade/items/${itemId}`,
+        color: 0x3b82f6,
+        thumbnail: item.item_image_url ? { url: item.item_image_url } : undefined,
+        fields: [
+          { name: 'Old Demand', value: item.demand || 'Normal', inline: true },
+          { name: 'New Demand', value: updates.demand, inline: true },
+          { name: 'Reason', value: data.reason || 'No reason provided.' }
+        ]
+      });
+    }
+    
+    if (embeds.length > 0) {
+      for (const embed of embeds) {
+        try {
+          await fetch('https://discord.com/api/webhooks/1534261990703497226/Fk8M35V7SOk20-79Z5ebLbu7EaK-0RDS4ZslISyDdjM11fSLcwYXgnfNPFipRlfKzDa5', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ embeds: [embed] }),
+          });
+          // Small delay to ensure Discord orders the separate messages correctly
+          await new Promise(r => setTimeout(r, 200));
+        } catch (e) {
+          console.error("Failed to send webhook:", e);
+        }
+      }
+    }
+
+    revalidatePath('/');
+    revalidatePath('/market');
+    revalidatePath(`/items/${itemId}`);
+    revalidatePath(`/item-value-changes/${itemId}`);
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Value update error:', err);
+    return { error: err.message || 'An unexpected error occurred during update', success: false };
   }
 }

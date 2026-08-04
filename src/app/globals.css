@@ -1,16 +1,17 @@
 :root {
-  --bg-primary: #121214;
-  --bg-secondary: #1C1C21;
-  --bg-tertiary: #27272F;
-  --text-primary: #FFFFFF;
-  --text-secondary: #A1A1AA;
-  --accent-color: #3B82F6;
-  --accent-hover: #60A5FA;
-  --border-color: #3F3F46;
-  --rare-color: #06B6D4;
-  --danger-color: #EF4444;
-  --success-color: #10B981;
-  
+  --bg-primary: #2b3628; /* Dark green-ish */
+  --bg-secondary: #212620; /* Darker card background */
+  --bg-tertiary: #171b16; /* Even darker for nav/inputs */
+  --text-primary: #f8fafc;
+  --text-secondary: #a1a1aa;
+  --accent-color: #7b8b74; /* Desaturated sage green accent matching the image */
+  --accent-hover: #90a189;
+  --border-color: #3b4537;
+  --rare-color: #f59e0b; /* Keeping gold for now, or maybe it should change? gold looks good with green */
+  --danger-color: #ef4444;
+  --success-color: #10b981;
+  --bg-elevated: #181d16; /* Slightly lighter than bg-tertiary, used for large page-wrapping surfaces */
+
   --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -26,6 +27,25 @@ body {
   font-family: var(--font-inter);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: url('/bg-pattern.png');
+  background-repeat: repeat;
+  background-size: 32px 32px;
+  transform: rotate(-25deg);
+  opacity: 0.2;
+  z-index: -1;
+  pointer-events: none;
 }
 
 a {
@@ -35,7 +55,7 @@ a {
 }
 
 a:hover {
-  color: var(--accent-color);
+  color: var(--accent-hover);
 }
 
 button {
@@ -45,15 +65,13 @@ button {
   font-family: inherit;
 }
 
-/* Glassmorphism Navigation */
+/* Navigation */
 .navbar {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(28, 28, 33, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  border-bottom: 2px solid var(--border-color);
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
@@ -63,9 +81,13 @@ button {
 .nav-brand {
   font-size: 1.5rem;
   font-weight: 800;
-  background: linear-gradient(90deg, #FFFFFF, var(--accent-color));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.nav-brand span {
+  color: var(--rare-color);
 }
 
 .nav-links {
@@ -74,8 +96,9 @@ button {
 }
 
 .nav-link {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
+  position: relative;
 }
 
 .nav-link.active {
@@ -85,6 +108,41 @@ button {
 .nav-link:hover {
   color: var(--text-primary);
 }
+
+.nav-link:hover::after {
+  content: '';
+  position: absolute;
+  bottom: -0.5rem;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--accent-color);
+  border-radius: 2px;
+}
+
+.nav-icon-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.nav-icon-link svg {
+  color: #fff;
+}
+
+.nav-icon-link:hover {
+  color: #fff;
+}
+
+.nav-icon-link:hover svg {
+  color: var(--accent-hover);
+}
+
 
 /* Global Container */
 .container {
@@ -112,16 +170,17 @@ button {
 .btn-primary:hover {
   background-color: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
 }
 
 .btn-secondary {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background-color: #353540;
+  background-color: #27272a;
 }
 
 /* Inputs */
@@ -137,7 +196,7 @@ button {
   padding: 0.75rem 1rem;
   border-radius: 6px;
   border: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-tertiary);
   color: var(--text-primary);
   font-family: inherit;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -146,7 +205,7 @@ button {
 .input:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
 }
 
 /* Card General */
@@ -155,12 +214,126 @@ button {
   border-radius: 8px;
   border: 1px solid var(--border-color);
   overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+/* Dropdown Navigation */
+.nav-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  background-color: var(--bg-tertiary);
+  min-width: 160px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+  z-index: 101;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 0;
+  margin-top: 0.5rem;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+
+/* Add a small invisible bridge so the menu doesn't disappear when hovering the gap */
+.nav-dropdown-container::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 0.5rem;
+}
+
+.nav-dropdown-container:hover .nav-dropdown-menu,
+.nav-dropdown-container:focus-within .nav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.nav-dropdown-item {
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  display: block;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background-color 0.2s, color 0.2s;
+  text-align: center;
+}
+
+.nav-dropdown-item:hover {
+  background-color: var(--bg-secondary);
+  color: var(--accent-hover);
+}
+
+/* Elevated page surface — a slightly lighter background panel used to wrap
+   large sections of content (profile, market, leaderboards) so they read as
+   one cohesive card against the page background. */
+.page-surface {
+  background-color: var(--bg-elevated);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 1px solid var(--border-color);
+}
+
+@media (max-width: 640px) {
+  .page-surface {
+    padding: 1.25rem;
+  }
+}
+
+/* Shared spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+/* Skeleton shimmer, for loading placeholders */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 37%, var(--bg-tertiary) 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 8px;
+}
+
+/* Gentle entrance animation for freshly-rendered content (cards, grids) */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeInUp 0.35s ease both;
 }
 
 /* Utility */
@@ -172,7 +345,7 @@ button {
 .mb-4 { margin-bottom: 1rem; }
 .text-center { text-align: center; }
 .text-gradient {
-  background: linear-gradient(90deg, #FFFFFF, var(--text-secondary));
+  background: linear-gradient(90deg, #FFFFFF, var(--rare-color));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
