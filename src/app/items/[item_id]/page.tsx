@@ -175,6 +175,8 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
         </div>
       </div>
 
+      <div className="page-surface fade-in">
+
       {/* Main Overview Split */}
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '1rem', marginBottom: '1rem' }}>
 
@@ -283,6 +285,8 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
             </div>
           </>
         )}
+      </div>
+
       </div>
 
     </div>

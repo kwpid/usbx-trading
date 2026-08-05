@@ -20,7 +20,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <nav className="navbar" style={{ padding: '1rem 2rem', borderBottom: 'none', backgroundColor: '#212620', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', justifyContent: 'center', position: 'relative' }}>
           <Link href="/" className="nav-brand" style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', textDecoration: 'none', position: 'absolute', left: '2rem' }}>
-            usbx.trade
+            <span style={{ color: '#e2b955' }}>usbx</span><span style={{ color: '#8353e4' }}>.</span>trade
           </Link>
           <div className="nav-links" style={{ gap: '2.5rem', display: 'flex', justifyContent: 'center' }}>
             <div className="nav-dropdown-container">

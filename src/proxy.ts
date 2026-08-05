@@ -42,16 +42,35 @@ async function isAdminRequest(request: NextRequest): Promise<boolean> {
   }
 }
 
-const MAINTENANCE_HTML = `<!doctype html>
+// Pulls a random tracked player's avatar to use as the faded background
+// silhouette, so the maintenance page isn't a generic stock icon.
+async function getRandomAvatarUrl(): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('usbx_avatar_url')
+      .not('usbx_avatar_url', 'is', null)
+      .limit(30);
+
+    const urls = (data || []).map((r) => r.usbx_avatar_url).filter(Boolean) as string[];
+    if (urls.length === 0) return null;
+    return urls[Math.floor(Math.random() * urls.length)];
+  } catch {
+    return null;
+  }
+}
+
+function buildMaintenanceHtml(avatarUrl: string | null): string {
+  return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>usbx.trade — Under Maintenance</title>
+  <title>usbx.trade - Under Maintenance</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: #2b3628;
+      background-color: #171b16;
       color: #f8fafc;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
@@ -61,27 +80,56 @@ const MAINTENANCE_HTML = `<!doctype html>
       padding: 1.5rem;
     }
     .card {
-      background-color: #212620;
+      position: relative;
+      overflow: hidden;
+      background: radial-gradient(circle at 85% 15%, #2c3427 0%, #1b201a 55%, #171b16 100%);
       border: 1px solid #3b4537;
-      border-radius: 12px;
-      padding: 2.5rem;
-      max-width: 440px;
-      text-align: center;
-      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
+      border-radius: 16px;
+      padding: 3rem 2.75rem;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 20px 45px -10px rgba(0,0,0,0.55);
     }
-    h1 { font-size: 1.6rem; margin-bottom: 0.75rem; }
-    p { color: #a1a1aa; line-height: 1.5; }
-    .brand { color: #7b8b74; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 18px 18px;
+      pointer-events: none;
+    }
+    .avatar {
+      position: absolute;
+      bottom: 0;
+      right: -20px;
+      width: 240px;
+      height: 240px;
+      object-fit: contain;
+      object-position: bottom;
+      opacity: 0.5;
+      filter: brightness(0);
+      pointer-events: none;
+    }
+    .content { position: relative; z-index: 1; }
+    .brand { font-size: 0.95rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 1.75rem; }
+    .brand .gold { color: #e2b955; }
+    .brand .dot { color: #8353e4; }
+    h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.75rem; letter-spacing: -0.01em; }
+    p { color: #a1a1aa; line-height: 1.6; max-width: 360px; }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="brand" style="margin-bottom: 1rem;">usbx.trade</div>
-    <h1>We&rsquo;ll be right back</h1>
-    <p>The site is undergoing maintenance right now. Check back shortly.</p>
+    ${avatarUrl ? `<img class="avatar" src="${avatarUrl}" alt="" />` : ''}
+    <div class="content">
+      <div class="brand"><span class="gold">usbx</span><span class="dot">.</span>trade</div>
+      <h1>We&rsquo;ll be right back</h1>
+      <p>The site is offline for a bit while we work on things behind the scenes. Thanks for your patience, check back shortly.</p>
+    </div>
   </div>
 </body>
 </html>`;
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -115,7 +163,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  return new NextResponse(MAINTENANCE_HTML, {
+  const avatarUrl = await getRandomAvatarUrl();
+
+  return new NextResponse(buildMaintenanceHtml(avatarUrl), {
     status: 503,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
