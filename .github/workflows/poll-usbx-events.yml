@@ -14,4 +14,6 @@ jobs:
     steps:
       - name: Trigger poll-events endpoint
         run: |
-          curl -sf "${{ secrets.SITE_URL }}/api/cron/poll-events?secret=${{ secrets.CRON_SECRET }}"
+          curl -sf \
+            -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/poll-events?secret=${{ secrets.CRON_SECRET }}"
