@@ -1,0 +1,17 @@
+name: Poll USBX Events
+
+on:
+  schedule:
+    # GitHub's practical minimum is ~5 minutes, and runs can slip a few
+    # minutes under load — not a true real-time poller, but far cheaper
+    # than an always-on worker and plenty fast for this site's needs.
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger poll-events endpoint
+        run: |
+          curl -sf "${{ secrets.SITE_URL }}/api/cron/poll-events?secret=${{ secrets.CRON_SECRET }}"

@@ -43,7 +43,7 @@ export default async function MarketPage(props: { searchParams: Promise<{ page?:
       dbQuery = dbQuery.eq('is_limited', true);
     }
     if (query) {
-      dbQuery = dbQuery.ilike('name', `%${query}%`);
+      dbQuery = dbQuery.or(`name.ilike.%${query}%,acronym.ilike.%${query}%`);
     }
 
     const { data, error, count } = await dbQuery.range((currentPage - 1) * pageSize, currentPage * pageSize - 1);

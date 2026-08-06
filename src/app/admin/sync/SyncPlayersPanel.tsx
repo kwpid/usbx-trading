@@ -32,6 +32,7 @@ export default function SyncPlayersPanel() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [synced, setSynced] = useState(0);
+  const [badgesAwarded, setBadgesAwarded] = useState(0);
   const [allPlayers, setAllPlayers] = useState<PlayerResult[]>([]);
   const [displayPage, setDisplayPage] = useState(1);
   const stopRef = useRef(false);
@@ -41,6 +42,7 @@ export default function SyncPlayersPanel() {
     setError(null);
     setDone(false);
     setSynced(0);
+    setBadgesAwarded(0);
     setAllPlayers([]);
     setDisplayPage(1);
     stopRef.current = false;
@@ -61,6 +63,7 @@ export default function SyncPlayersPanel() {
 
       const players: PlayerResult[] = json.players ?? [];
       setSynced((s) => s + players.filter((p) => p.status === 'ok').length);
+      setBadgesAwarded((b) => b + (json.badgesAwarded ?? 0));
       setAllPlayers((prev) => [...prev, ...players]);
 
       if (json.done || json.nextCursor === null) {
@@ -84,8 +87,10 @@ export default function SyncPlayersPanel() {
       <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem' }}>Sync All Players</h3>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
         Walks the USBX RAP leaderboard to discover ranked players, fetches their
-        inventories, computes RAP &amp; Value against our item catalog, and saves snapshots.
-        Powers the site leaderboards and profile charts.
+        inventories, computes RAP &amp; Value against our item catalog, saves snapshots, and
+        awards any Trade.Badges they've become eligible for. Powers the site leaderboards,
+        profile charts, and keeps badges current without needing every player to visit their
+        own profile.
       </p>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -108,11 +113,12 @@ export default function SyncPlayersPanel() {
       {allPlayers.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
             {[
               ['Players Found', allPlayers.length],
               ['Synced', synced],
               ['Private / Error', allPlayers.length - synced],
+              ['Badges Awarded', badgesAwarded],
             ].map(([label, val]) => (
               <div key={label as string} className="card" style={{ padding: '1rem', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{label}</div>

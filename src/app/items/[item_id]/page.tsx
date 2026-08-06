@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { fetchItem, fetchItemOwners, fetchItemRecentSales, fetchItemRap, UsbxOwnerRow, UsbxSale } from "@/lib/usbxApi";
+import { resolveUsbxAssetUrl } from "@/lib/usbxAssets";
 import { getRarity, RARITY_EMOJI, RARITY_LABEL } from "@/lib/rarity";
 import { tokensToScrips } from "@/lib/currency";
 import ItemCharts from "./ItemCharts";
@@ -43,9 +44,9 @@ function computeTrend(sales: UsbxSale[]): string {
   return 'Stable';
 }
 
-type HoarderEntry = { id: number; username: string; headshotUrl: string | null; count: number; latestAcquiredAt: string | null };
+type HoarderEntry = { id: number; username: string; avatarUrl: string | null; count: number; latestAcquiredAt: string | null };
 
-function buildHoarders(owners: UsbxOwnerRow[]): HoarderEntry[] {
+function buildHoarders(owners: UsbxOwnerRow[], avatarByUserId: Map<number, string | null>): HoarderEntry[] {
   const map = new Map<number, HoarderEntry>();
   for (const row of owners) {
     const owner = row.owner;
@@ -60,7 +61,7 @@ function buildHoarders(owners: UsbxOwnerRow[]): HoarderEntry[] {
       map.set(owner.id, {
         id: owner.id,
         username: owner.username,
-        headshotUrl: owner.profile?.headshotUrl ?? null,
+        avatarUrl: avatarByUserId.get(owner.id) || resolveUsbxAssetUrl(owner.profile?.headshotUrl) || null,
         count: 1,
         latestAcquiredAt: row.acquiredAt,
       });
@@ -123,7 +124,24 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
     rapAfterSale = Math.round((rapScrips * liveRap.totalSales + item.price_best_resale) / (liveRap.totalSales + 1));
   }
 
-  const hoarders = buildHoarders(owners);
+  // The live owners API's inline profile.headshotUrl is often missing, so
+  // cross-reference our own synced profiles table for a reliable avatar.
+  const ownerIds = [...new Set(owners.map((o) => o.owner?.id).filter((id): id is number => id != null))];
+  let avatarByUserId = new Map<number, string | null>();
+  if (ownerIds.length > 0) {
+    const { data: ownerProfiles } = await supabase
+      .from('profiles')
+      .select('usbx_user_id, usbx_avatar_url')
+      .in('usbx_user_id', ownerIds);
+    avatarByUserId = new Map((ownerProfiles || []).map((p) => [p.usbx_user_id, p.usbx_avatar_url]));
+  }
+
+  const ownersWithAvatar = owners.map((row) => ({
+    ...row,
+    avatarUrl: row.owner ? avatarByUserId.get(row.owner.id) || resolveUsbxAssetUrl(row.owner.profile?.headshotUrl) || null : null,
+  }));
+
+  const hoarders = buildHoarders(owners, avatarByUserId);
   const knownOwners = hoarders.length;
   const totalCopies = item.copies_sold ?? owners.length;
   const topHoarder = [...hoarders].sort((a, b) => b.count - a.count)[0] ?? null;
@@ -265,7 +283,7 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
             {/* Owner Lists */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
 
-              <OwnersList owners={owners} />
+              <OwnersList owners={ownersWithAvatar} />
 
               {/* Top Hoards */}
               <div className="card" style={{ padding: '1.5rem' }}>
@@ -274,8 +292,16 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {topHoards.map((hoard) => (
-                    <div key={hoard.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px' }}>
-                      <span style={{ fontWeight: '500', color: 'var(--accent-hover)' }}>{hoard.username}</span>
+                    <div key={hoard.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px' }}>
+                      <Link href={`/player/${hoard.id}`} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none' }}>
+                        {hoard.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={hoard.avatarUrl} alt={hoard.username} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', backgroundColor: 'var(--bg-secondary)' }} />
+                        ) : (
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--bg-secondary)', flexShrink: 0 }} />
+                        )}
+                        <span style={{ fontWeight: '500', color: 'var(--accent-hover)' }}>{hoard.username}</span>
+                      </Link>
                       <span style={{ color: 'var(--rare-color)', fontWeight: 'bold' }}>{hoard.count} Copies</span>
                     </div>
                   ))}

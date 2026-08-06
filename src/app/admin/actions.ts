@@ -29,6 +29,81 @@ export async function setMaintenanceMode(enabled: boolean) {
   return { success: true };
 }
 
+// Wipes every awarded badge, site-wide — for re-tuning badge criteria during
+// development without stale grants sticking around. Players re-earn
+// anything they're still eligible for next time they load their profile.
+export async function resetAllBadges() {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false };
+  }
+
+  const { error } = await supabase.from('player_badges').delete().gte('usbx_user_id', 0);
+
+  if (error) {
+    return { error: error.message, success: false };
+  }
+
+  revalidatePath('/badges');
+  return { success: true };
+}
+
+// Looks up a player by USBX user id for the Community Badges admin panel —
+// returns their current badges so the panel can show grant/revoke state.
+export async function lookupPlayerBadges(usbxUserId: number) {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false as const };
+  }
+
+  const [{ data: profile }, { data: badgeRows }] = await Promise.all([
+    supabase.from('profiles').select('usbx_username').eq('usbx_user_id', usbxUserId).maybeSingle(),
+    supabase.from('player_badges').select('badge_id').eq('usbx_user_id', usbxUserId),
+  ]);
+
+  return {
+    success: true as const,
+    username: profile?.usbx_username ?? null,
+    badgeIds: (badgeRows || []).map((r) => r.badge_id as string),
+  };
+}
+
+export async function grantBadge(usbxUserId: number, badgeId: string) {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false };
+  }
+
+  const { error } = await supabase
+    .from('player_badges')
+    .upsert({ usbx_user_id: usbxUserId, badge_id: badgeId }, { onConflict: 'usbx_user_id,badge_id' });
+
+  if (error) {
+    return { error: error.message, success: false };
+  }
+
+  revalidatePath(`/player/${usbxUserId}`);
+  revalidatePath('/badges');
+  return { success: true };
+}
+
+export async function revokeBadge(usbxUserId: number, badgeId: string) {
+  if (!(await requireAdmin())) {
+    return { error: 'Admins only.', success: false };
+  }
+
+  const { error } = await supabase
+    .from('player_badges')
+    .delete()
+    .eq('usbx_user_id', usbxUserId)
+    .eq('badge_id', badgeId);
+
+  if (error) {
+    return { error: error.message, success: false };
+  }
+
+  revalidatePath(`/player/${usbxUserId}`);
+  revalidatePath('/badges');
+  return { success: true };
+}
+
 export async function saveItemAction(item: any) {
   if (!(await requireAdmin())) {
     return { error: 'Admins only.', success: false };

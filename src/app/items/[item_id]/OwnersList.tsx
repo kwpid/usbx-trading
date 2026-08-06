@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { UsbxOwnerRow } from '@/lib/usbxApi';
+
+type OwnerRowWithAvatar = UsbxOwnerRow & { avatarUrl: string | null };
 
 function timeAgo(dateString: string | null): string {
   if (!dateString) return 'Unknown';
@@ -16,7 +19,7 @@ function timeAgo(dateString: string | null): string {
   return `${y} year${y > 1 ? 's' : ''} ago`;
 }
 
-export default function OwnersList({ owners }: { owners: UsbxOwnerRow[] }) {
+export default function OwnersList({ owners }: { owners: OwnerRowWithAvatar[] }) {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -61,8 +64,20 @@ export default function OwnersList({ owners }: { owners: UsbxOwnerRow[] }) {
           <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '1rem' }}>No owners found.</div>
         ) : (
           currentOwners.map((row) => (
-            <div key={row.serialId} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px' }}>
-              <span style={{ fontWeight: '500', color: 'var(--accent-hover)' }}>{row.owner?.username ?? 'Unknown'}</span>
+            <div key={row.serialId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px' }}>
+              {row.owner ? (
+                <Link href={`/player/${row.owner.id}`} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none' }}>
+                  {row.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={row.avatarUrl} alt={row.owner.username} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', backgroundColor: 'var(--bg-secondary)' }} />
+                  ) : (
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--bg-secondary)', flexShrink: 0 }} />
+                  )}
+                  <span style={{ fontWeight: '500', color: 'var(--accent-hover)' }}>{row.owner.username}</span>
+                </Link>
+              ) : (
+                <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}>Unknown</span>
+              )}
               <div style={{ display: 'flex', gap: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                 <span>#{row.serialNumber}</span>
                 <span>{timeAgo(row.acquiredAt)}</span>

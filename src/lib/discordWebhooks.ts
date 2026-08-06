@@ -6,6 +6,10 @@ const SALES_WEBHOOK_URL =
   process.env.DISCORD_SALES_WEBHOOK_URL ??
   'https://discord.com/api/webhooks/1534283311147651278/K6m3vHVyAksZMveEU7daOE4388_iJ94oPPdjKsWsFEcFa-3D45lJq7V08CwUPoJ5rU0z';
 
+// No hardcoded fallback — set DISCORD_DEALS_WEBHOOK_URL when a channel exists
+// for it. sendDealWebhook silently no-ops until then.
+const DEALS_WEBHOOK_URL = process.env.DISCORD_DEALS_WEBHOOK_URL;
+
 async function postEmbed(url: string, embed: Record<string, unknown>) {
   try {
     await fetch(url, {
@@ -86,6 +90,37 @@ export async function sendRecentSaleWebhook(opts: {
         : [{ name: 'Seller', value: 'Official Release', inline: true }]),
       ...(opts.serialNumber ? [{ name: 'Serial', value: `#${opts.serialNumber}`, inline: true }] : []),
       ...(opts.saleType ? [{ name: 'Type', value: opts.saleType, inline: true }] : []),
+    ],
+    timestamp: new Date().toISOString(),
+  });
+}
+
+// Fires when a live listing crosses the "good deal" discount threshold —
+// meant to reach people who don't have the Deals page open, since being
+// fast to a good deal only matters if you actually see it in time.
+export async function sendDealWebhook(opts: {
+  itemId: number;
+  itemName: string;
+  imageUrl?: string | null;
+  price: number;
+  rap: number;
+  discountPct: number;
+  storeName?: string | null;
+  sellerUsername?: string | null;
+}) {
+  if (!DEALS_WEBHOOK_URL) return;
+
+  await postEmbed(DEALS_WEBHOOK_URL, {
+    title: `🔥 New Deal: ${opts.itemName}`,
+    url: `https://usbx.trade/items/${opts.itemId}`,
+    color: 0x22c55e,
+    thumbnail: opts.imageUrl ? { url: opts.imageUrl } : undefined,
+    fields: [
+      { name: 'Price', value: opts.price.toLocaleString(), inline: true },
+      { name: 'RAP', value: opts.rap.toLocaleString(), inline: true },
+      { name: 'Discount', value: `${opts.discountPct.toFixed(0)}% below RAP`, inline: true },
+      ...(opts.storeName ? [{ name: 'Store', value: opts.storeName, inline: true }] : []),
+      ...(opts.sellerUsername ? [{ name: 'Seller', value: opts.sellerUsername, inline: true }] : []),
     ],
     timestamp: new Date().toISOString(),
   });

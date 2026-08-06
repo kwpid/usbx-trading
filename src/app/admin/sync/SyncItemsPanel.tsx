@@ -226,6 +226,8 @@ function RefreshAllItemsPanel() {
 
 import SyncPlayersPanel from './SyncPlayersPanel';
 import DealsSyncPanel from './DealsSyncPanel';
+import BadgesResetPanel from './BadgesResetPanel';
+import CommunityBadgesPanel from './CommunityBadgesPanel';
 
 // ─── Composite Export ──────────────────────────────────────────────────────
 
@@ -235,6 +237,8 @@ export default function SyncItemsPanel() {
       <CatalogSyncPanel />
       <RefreshAllItemsPanel />
       <DealsSyncPanel />
+      <CommunityBadgesPanel />
+      <BadgesResetPanel />
       <SyncPlayersPanel />
     </div>
   );

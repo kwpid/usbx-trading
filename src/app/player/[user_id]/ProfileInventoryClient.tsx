@@ -369,12 +369,12 @@ export default function ProfileInventoryClient({ items, inventoryIsPrivate }: Pr
 
                 <div style={{ padding: '0.75rem', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>RAP</span>
-                    <span style={{ fontWeight: '500' }}>{formatNumber(item.rap)}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{copyCount > 1 ? 'Total RAP' : 'RAP'}</span>
+                    <span style={{ fontWeight: '500' }}>{formatNumber(item.rap * copyCount)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Value</span>
-                    <span style={{ fontWeight: '500' }}>{formatNumber(item.value)}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{copyCount > 1 ? 'Total Value' : 'Value'}</span>
+                    <span style={{ fontWeight: '500' }}>{formatNumber(item.value * copyCount)}</span>
                   </div>
                   {copyCount === 1 ? (
                     <>
@@ -395,13 +395,23 @@ export default function ProfileInventoryClient({ items, inventoryIsPrivate }: Pr
                   )}
 
                   <div style={{ marginTop: 'auto', paddingTop: '0.75rem' }}>
-                    <button
-                      onClick={() => setCopiesModalItem(item)}
-                      className="btn btn-primary"
-                      style={{ width: '100%', textAlign: 'center', padding: '0.4rem', fontSize: '0.85rem' }}
-                    >
-                      Owned Copies{copyCount > 1 ? ` (${copyCount})` : ''}
-                    </button>
+                    {copyCount === 1 ? (
+                      <Link
+                        href={`/serial/${latestCopy?.serialId}`}
+                        className="btn btn-primary"
+                        style={{ display: 'block', width: '100%', textAlign: 'center', padding: '0.4rem', fontSize: '0.85rem' }}
+                      >
+                        UAID Page
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => setCopiesModalItem(item)}
+                        className="btn btn-primary"
+                        style={{ width: '100%', textAlign: 'center', padding: '0.4rem', fontSize: '0.85rem' }}
+                      >
+                        Owned Copies ({copyCount})
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

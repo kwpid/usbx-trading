@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Link from "next/link";
+import SearchTrigger from "./components/SearchTrigger";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -33,6 +34,7 @@ export default function RootLayout({
                 <Link href="/recent-sales" className="nav-dropdown-item">Recent Sales</Link>
                 <Link href="/trade-calculator" className="nav-dropdown-item">Trade Calculator</Link>
                 <Link href="/projected-items" className="nav-dropdown-item">Projected Items</Link>
+                <Link href="/badges" className="nav-dropdown-item">Trade.Badges</Link>
               </div>
             </div>
             
@@ -55,10 +57,7 @@ export default function RootLayout({
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
               <span>Deals</span>
             </Link>
-            <Link href="#" className="nav-icon-link">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <span>Search</span>
-            </Link>
+            <SearchTrigger />
             <Link href="/account" className="nav-icon-link">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               <span>Account</span>

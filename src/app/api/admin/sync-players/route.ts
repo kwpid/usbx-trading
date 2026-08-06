@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/roles';
 import { fetchAllProfileInventory, UsbxApiError } from '@/lib/usbxApi';
 import { resolveUsbxAssetUrl } from '@/lib/usbxAssets';
+import { BADGES, BadgeCollectible } from '@/lib/badges';
+import { SnapshotItem } from '@/lib/snapshot';
 
 // Admin-triggered sync always force-writes snapshots — no cooldown.
 // The 6-hour cooldown only applies to lazy profile-visit snapshots in page.tsx.
@@ -61,11 +63,17 @@ export async function GET(request: NextRequest) {
   // ── 2. Load our item catalog once for this batch ───────────────────────────
   const { data: allItems } = await supabase
     .from('items')
-    .select('id, rap, value')
+    .select('id, name, rap, value, available_owners, item_image_url')
     .eq('is_limited', true);
 
-  const itemPricingById = new Map<number, { rap: number; value: number }>(
-    (allItems ?? []).map((i) => [i.id, { rap: i.rap ?? 0, value: i.value ?? 0 }])
+  const itemPricingById = new Map<
+    number,
+    { rap: number; value: number; name: string; availableOwners: number | null; imageUrl: string | null }
+  >(
+    (allItems ?? []).map((i) => [
+      i.id,
+      { rap: i.rap ?? 0, value: i.value ?? 0, name: i.name, availableOwners: i.available_owners, imageUrl: i.item_image_url },
+    ])
   );
 
   // ── 3. Enrich each player ──────────────────────────────────────────────────
@@ -79,6 +87,24 @@ export async function GET(request: NextRequest) {
     status: 'ok' | 'private' | 'error';
   }[] = [];
 
+  // Badges each of these players already have, fetched once for the whole
+  // batch. Grants collected here and inserted in one query at the end.
+  const ownedBadgesByUser = new Map<number, Set<string>>();
+  if (entries.length > 0) {
+    const { data: existingBadgeRows } = await supabase
+      .from('player_badges')
+      .select('usbx_user_id, badge_id')
+      .in('usbx_user_id', entries.map((e) => e.userId));
+
+    for (const row of existingBadgeRows || []) {
+      const set = ownedBadgesByUser.get(row.usbx_user_id) ?? new Set<string>();
+      set.add(row.badge_id);
+      ownedBadgesByUser.set(row.usbx_user_id, set);
+    }
+  }
+
+  const badgeRowsToInsert: { usbx_user_id: number; badge_id: string }[] = [];
+
   for (const entry of entries) {
     const userId = entry.userId;
     const avatarUrl = resolveUsbxAssetUrl(entry.headshotUrl) ?? null;
@@ -86,6 +112,8 @@ export async function GET(request: NextRequest) {
     let total_rap = entry.rapFreemium; // Use USBX's authoritative RAP (in scrips)
     let total_value = 0;
     let status: 'ok' | 'private' | 'error' = 'ok';
+    const collectiblesMap = new Map<number, BadgeCollectible>();
+    const snapshotItemsMap = new Map<number, SnapshotItem>();
 
     try {
       const inventory = await fetchAllProfileInventory(userId);
@@ -96,6 +124,35 @@ export async function GET(request: NextRequest) {
         const pricing = itemPricingById.get(storeItemId);
         if (!pricing) continue;
         total_value += pricing.value;
+
+        const serialNumber = row.serialNumber || '?';
+        const copy = { serialNumber };
+        const existing = collectiblesMap.get(storeItemId);
+        if (existing) {
+          existing.copies.push(copy);
+        } else {
+          collectiblesMap.set(storeItemId, {
+            name: pricing.name || row.item.name,
+            availableOwners: pricing.availableOwners,
+            copies: [copy],
+          });
+        }
+
+        const existingSnapshot = snapshotItemsMap.get(storeItemId);
+        if (existingSnapshot) {
+          existingSnapshot.copies += 1;
+          existingSnapshot.serials.push(serialNumber);
+        } else {
+          snapshotItemsMap.set(storeItemId, {
+            id: storeItemId,
+            name: pricing.name || row.item.name,
+            imageUrl: pricing.imageUrl || row.item.resolvedPreviewUrl || null,
+            rap: pricing.rap,
+            value: pricing.value,
+            copies: 1,
+            serials: [serialNumber],
+          });
+        }
       }
     } catch (err) {
       if (err instanceof UsbxApiError && err.status === 403) {
@@ -124,7 +181,17 @@ export async function GET(request: NextRequest) {
       usbx_user_id: userId,
       total_rap,
       total_value,
+      inventory_snapshot: [...snapshotItemsMap.values()],
     });
+
+    // ── 6. Check badge eligibility against this refreshed data ──────────────
+    const ownedBadges = ownedBadgesByUser.get(userId) ?? new Set<string>();
+    const badgeCtx = { usbxUserId: userId, totalValue: total_value, collectibles: [...collectiblesMap.values()] };
+    for (const badge of BADGES) {
+      if (!ownedBadges.has(badge.id) && badge.check(badgeCtx)) {
+        badgeRowsToInsert.push({ usbx_user_id: userId, badge_id: badge.id });
+      }
+    }
 
     results.push({
       usbx_user_id: userId,
@@ -137,10 +204,21 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  let badgesAwarded = 0;
+  if (badgeRowsToInsert.length > 0) {
+    const { error: badgeInsertErr } = await supabase.from('player_badges').insert(badgeRowsToInsert);
+    if (badgeInsertErr) {
+      console.error('Failed to insert badges during player sync:', badgeInsertErr.message);
+    } else {
+      badgesAwarded = badgeRowsToInsert.length;
+    }
+  }
+
   return NextResponse.json({
     players: results,
     nextCursor,
     done: nextCursor === null || entries.length === 0,
     processedCount: results.length,
+    badgesAwarded,
   });
 }

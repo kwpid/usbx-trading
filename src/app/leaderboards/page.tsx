@@ -76,7 +76,7 @@ export default async function LeaderboardsPage({
           Value Leaderboard
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
-          The wealthiest players ranked by the total value of their collectibles.
+          The wealthiest players ranked by the total value of their limiteds.
         </p>
       </div>
 
@@ -177,7 +177,7 @@ export default async function LeaderboardsPage({
       )}
 
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '1rem', marginBottom: '2rem' }}>
-        {total.toLocaleString()} players ranked · Updates when profiles are visited or a player sync is run
+        {total.toLocaleString()} players ranked
       </p>
     </div>
   );

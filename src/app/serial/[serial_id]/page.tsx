@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchSerialLifecycle, UsbxLifecycleEvent } from "@/lib/usbxApi";
 import { resolveUsbxAssetUrl } from "@/lib/usbxAssets";
+import { supabase } from "@/lib/supabase";
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,31 @@ export default async function SerialLifecyclePage(props: { params: Promise<{ ser
   // Usually, a timeline shows the newest events at the top. Let's reverse it.
   const timeline = [...events].reverse();
 
+  // The lifecycle API's inline fromUser/toUser.profile.headshotUrl is
+  // unreliable (often missing), so cross-reference our own synced profiles
+  // table for a real avatar per user instead.
+  const userIds = [
+    ...new Set(
+      events
+        .flatMap((e) => [e.fromUser?.id, e.toUser?.id])
+        .filter((id): id is number => id != null)
+    ),
+  ];
+
+  let avatarByUserId = new Map<number, string | null>();
+  if (userIds.length > 0) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('usbx_user_id, usbx_avatar_url')
+      .in('usbx_user_id', userIds);
+    avatarByUserId = new Map((data || []).map((p) => [p.usbx_user_id, p.usbx_avatar_url]));
+  }
+
+  function avatarFor(user: { id: number; profile?: { headshotUrl: string | null } } | null): string | null {
+    if (!user) return null;
+    return avatarByUserId.get(user.id) || resolveUsbxAssetUrl(user.profile?.headshotUrl) || null;
+  }
+
   return (
     <div className="container" style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem 1rem' }}>
       <div style={{ marginBottom: '2rem' }}>
@@ -119,9 +145,9 @@ export default async function SerialLifecyclePage(props: { params: Promise<{ ser
                     {event.fromUser ? (
                       <Link href={`/player/${event.fromUser.id}`} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', color: 'inherit' }}>
                         <div style={{ width: '40px', height: '40px', borderRadius: '20px', overflow: 'hidden', backgroundColor: 'var(--bg-secondary)' }}>
-                          {event.fromUser.profile?.headshotUrl ? (
+                          {avatarFor(event.fromUser) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={resolveUsbxAssetUrl(event.fromUser.profile.headshotUrl)!} alt={event.fromUser.username} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src={avatarFor(event.fromUser)!} alt={event.fromUser.username} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                           ) : (
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>?</div>
                           )}
@@ -142,9 +168,9 @@ export default async function SerialLifecyclePage(props: { params: Promise<{ ser
                     {event.toUser ? (
                       <Link href={`/player/${event.toUser.id}`} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', color: 'inherit' }}>
                         <div style={{ width: '40px', height: '40px', borderRadius: '20px', overflow: 'hidden', backgroundColor: 'var(--bg-secondary)' }}>
-                          {event.toUser.profile?.headshotUrl ? (
+                          {avatarFor(event.toUser) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={resolveUsbxAssetUrl(event.toUser.profile.headshotUrl)!} alt={event.toUser.username} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src={avatarFor(event.toUser)!} alt={event.toUser.username} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                           ) : (
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>?</div>
                           )}

@@ -7,7 +7,11 @@ import { getSession } from "@/lib/session";
 import { logout } from "../../account/actions";
 import PlayerChart from "./PlayerChart";
 import RecordSnapshot from "./RecordSnapshot";
+import AwardBadges from "./AwardBadges";
 import ProfileInventoryClient, { InventoryItem } from "./ProfileInventoryClient";
+import BadgeIcon from "@/app/components/BadgeIcon";
+import { BADGES_BY_ID } from "@/lib/badges";
+import { SnapshotItem } from "@/lib/snapshot";
 
 export const dynamic = 'force-dynamic';
 
@@ -104,10 +108,11 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   const totalValue = collectibles.reduce((sum, row) => sum + (dbItemsById.get(row.item.storeItemId)?.value || 0), 0);
   const totalRap = collectibles.reduce((sum, row) => sum + (dbItemsById.get(row.item.storeItemId)?.rap || 0), 0);
 
-  // Fetch full history for charting
+  // Fetch full history for charting, including each day's inventory snapshot
+  // so the chart can show "what they had on this date" on click.
   const { data: historyData } = await supabase
     .from('player_value_history')
-    .select('recorded_at:created_at, total_rap, total_value')
+    .select('recorded_at:created_at, total_rap, total_value, inventory_snapshot')
     .eq('usbx_user_id', userId)
     .order('created_at', { ascending: true });
 
@@ -161,11 +166,47 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   }
   const clientCollectibles: InventoryItem[] = [...stackedMap.values()];
 
+  const inventorySnapshot: SnapshotItem[] = clientCollectibles.map((c) => ({
+    id: c.storeItemId,
+    name: c.name,
+    imageUrl: c.imageUrl || null,
+    rap: c.rap,
+    value: c.value,
+    copies: c.copies.length,
+    serials: c.copies.map((copy) => copy.serialNumber),
+  }));
+
+  // Badges already earned by this player — evaluated once elsewhere
+  // (AwardBadges below) and just displayed here from what's stored.
+  const { data: badgeRows } = await supabase
+    .from('player_badges')
+    .select('badge_id, awarded_at')
+    .eq('usbx_user_id', userId)
+    .order('awarded_at', { ascending: true });
+
+  const earnedBadges = (badgeRows || [])
+    .map((row) => ({ def: BADGES_BY_ID.get(row.badge_id), awardedAt: row.awarded_at }))
+    .filter((b): b is { def: NonNullable<typeof b.def>; awardedAt: string } => Boolean(b.def));
+
   return (
     <div className="container" style={{ padding: '0', maxWidth: '1200px' }}>
       
       {/* Background snapshot and cache invalidation */}
-      {!inventoryIsPrivate && <RecordSnapshot userId={userId} totalRap={totalRap} totalValue={totalValue} />}
+      {!inventoryIsPrivate && (
+        <RecordSnapshot userId={userId} totalRap={totalRap} totalValue={totalValue} inventorySnapshot={inventorySnapshot} />
+      )}
+      {/* Always runs, even with a private inventory — identity-based badges
+          (e.g. Developer) don't depend on inventory data. Inventory-based
+          checks just naturally evaluate against an empty collection. */}
+      <AwardBadges
+        userId={userId}
+        totalValue={totalValue}
+        collectibles={clientCollectibles.map((c) => ({
+          name: c.name,
+          availableOwners: c.availableOwners,
+          copies: c.copies.map((copy) => ({ serialNumber: copy.serialNumber })),
+        }))}
+      />
 
       {/* Page Header (Username) */}
       <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -204,7 +245,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
                 <StatCell label="Value" value={formatNumber(totalValue)} accent="var(--rare-color)" icon={Icons.Value} />
                 <StatCell label="Rank" value={rank ? `#${rank}` : '-'} icon={Icons.Rank} />
                 <StatCell label="RAP" value={formatNumber(totalRap)} icon={Icons.RAP} />
-                <StatCell label="Collectibles" value={formatNumber(collectibles.length)} icon={Icons.Collectibles} />
+                <StatCell label="Limiteds" value={formatNumber(collectibles.length)} icon={Icons.Collectibles} />
                 
                 {isOwnProfile && (
                   <form action={logout} style={{ display: 'contents' }}>
@@ -228,6 +269,20 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
             <PlayerChart history={historyData || []} />
           </div>
         </div>
+
+        {/* Badges */}
+        {earnedBadges.length > 0 && (
+          <div style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>
+              <span style={{ color: '#e2b955' }}>Trade</span><span style={{ color: '#8353e4' }}>.</span>Badges
+            </h2>
+            <div className="card" style={{ padding: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+              {earnedBadges.map(({ def }) => (
+                <BadgeIcon key={def.id} badge={def} size={48} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Inventory */}
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Limiteds</h2>

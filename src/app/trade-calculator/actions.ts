@@ -9,7 +9,7 @@ export async function searchTradeItems(query: string) {
   const { data, error } = await supabase
     .from('items')
     .select('id, name, item_image_url, rap, value')
-    .ilike('name', `%${trimmed}%`)
+    .or(`name.ilike.%${trimmed}%,acronym.ilike.%${trimmed}%`)
     .order('value', { ascending: false, nullsFirst: false })
     .limit(15);
 

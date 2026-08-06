@@ -6,6 +6,7 @@ import {
   Line,
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -155,11 +156,15 @@ function OwnersChart({ data }: { data: HistoryRow[] }) {
   );
 }
 
-function RecentSalesChart({ sales }: { sales: Sale[] }) {
+function RecentSalesChart({ sales, rap }: { sales: Sale[]; rap: number | null | undefined }) {
   if (sales.length === 0) return <NoData message="No recent sales data available for this item." />;
 
-  const pts = sales
+  // The API returns sales newest-first; take the most recent 30, then flip
+  // to chronological order so the chart reads left (past) to right (recent),
+  // same direction as every other chart on the site.
+  const listNewestFirst = sales
     .filter((s) => s.purchasedAt && s.price != null)
+    .slice(0, 30)
     .map((s) => ({
       date: fmtDateTime(s.purchasedAt),
       // Sale prices come back in whatever currency USBX used for that sale;
@@ -167,39 +172,55 @@ function RecentSalesChart({ sales }: { sales: Sale[] }) {
       Price: s.currency?.code === 'SCRIPS' ? Math.round(s.price as number) : tokensToScrips(s.price as number),
       buyer: s.buyer?.username ?? '?',
       serial: s.serial?.serialNumber ?? '?',
-    }))
-    .slice(0, 30);
+    }));
+
+  const chartPts = [...listNewestFirst].reverse();
+
+  const barColor = (price: number) => {
+    if (!rap || rap <= 0) return 'var(--accent-color)';
+    if (price < rap * 0.9) return 'var(--success-color)'; // sold below RAP — a deal
+    if (price > rap * 1.1) return 'var(--danger-color)'; // sold above RAP — overpaid
+    return 'var(--rare-color)'; // roughly at RAP
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={pts} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
+        <BarChart data={chartPts} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
           <XAxis dataKey="date" stroke="var(--text-secondary)" tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
           <YAxis stroke="var(--text-secondary)" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} tickFormatter={formatYAxis} />
           <Tooltip {...CHART_STYLE} content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
             const d = payload[0].payload;
+            const vsRap = rap && rap > 0 ? Math.round(((d.Price - rap) / rap) * 100) : null;
             return (
               <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '0.75rem', fontSize: '0.85rem' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: 4 }}>{d.date}</div>
                 <div>Price: <b>{d.Price?.toLocaleString()} scrips</b></div>
+                {vsRap !== null && (
+                  <div>vs RAP: <b style={{ color: vsRap <= 0 ? 'var(--success-color)' : 'var(--danger-color)' }}>{vsRap > 0 ? '+' : ''}{vsRap}%</b></div>
+                )}
                 <div>Buyer: <b>{d.buyer}</b></div>
                 <div>Serial: <b>#{d.serial}</b></div>
               </div>
             );
           }} />
-          <Bar dataKey="Price" fill="var(--accent-color)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Price" radius={[4, 4, 0, 0]}>
+            {chartPts.map((entry, i) => (
+              <Cell key={i} fill={barColor(entry.Price)} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Transaction list */}
+      {/* Transaction list, newest first */}
       <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-        {pts.map((s, i) => (
+        {listNewestFirst.map((s, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: 6, fontSize: '0.85rem' }}>
             <span style={{ color: 'var(--accent-hover)', fontWeight: 500 }}>{s.buyer}</span>
             <span style={{ color: 'var(--text-secondary)' }}>#{s.serial}</span>
-            <span style={{ fontWeight: 'bold', color: 'var(--rare-color)' }}>{s.Price?.toLocaleString()} scrips</span>
+            <span style={{ fontWeight: 'bold', color: barColor(s.Price) }}>{s.Price?.toLocaleString()} scrips</span>
             <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{s.date}</span>
           </div>
         ))}
@@ -250,7 +271,7 @@ export default function ItemCharts({ item, recentSales = [] }: Props) {
       case 'Value': return <ValueChart data={history} />;
       case 'Copies': return <CopiesChart data={history} />;
       case 'Owners': return <OwnersChart data={history} />;
-      case 'Recent Sales': return <RecentSalesChart sales={recentSales} />;
+      case 'Recent Sales': return <RecentSalesChart sales={recentSales} rap={item.rap} />;
     }
   };
 
