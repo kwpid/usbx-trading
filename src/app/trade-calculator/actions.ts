@@ -8,10 +8,10 @@ export async function searchTradeItems(query: string) {
 
   const { data, error } = await supabase
     .from('items')
-    .select('id, name, item_image_url, rap, value')
+    .select('id, name, item_image_url, rap, value, available_owners, is_limited')
     .or(`name.ilike.%${trimmed}%,acronym.ilike.%${trimmed}%`)
     .order('value', { ascending: false, nullsFirst: false })
-    .limit(15);
+    .limit(30);
 
   if (error) {
     console.error('searchTradeItems error:', error.message);

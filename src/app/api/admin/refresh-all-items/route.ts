@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/roles';
-import { fetchItemRap, fetchItemOwners } from '@/lib/usbxApi';
+import { fetchItemRap } from '@/lib/usbxApi';
 import { tokensToScrips } from '@/lib/currency';
+import { syncItemOwners } from '@/lib/itemOwnersSync';
 import { revalidatePath } from 'next/cache';
 
 // Bulk-enriches ALL items in the database with the latest RAP, owner count,
@@ -48,9 +49,9 @@ export async function GET(request: NextRequest) {
     const enrichId = item.listing_id ?? item.id;
 
     try {
-      const [rapData, owners] = await Promise.all([
+      const [rapData, { owners, uniqueOwners }] = await Promise.all([
         fetchItemRap(enrichId).catch(() => null),
-        fetchItemOwners(enrichId).catch(() => []),
+        syncItemOwners(item.id, enrichId),
       ]);
 
       // We don't know the currency from the DB alone; assume tokens (most common)
@@ -58,14 +59,12 @@ export async function GET(request: NextRequest) {
       const rapRaw = rapData?.rap ?? null;
       const rapScrips = rapRaw != null ? tokensToScrips(rapRaw) : null;
 
-      const uniqueOwners = new Set(
-        owners.map((r) => r.owner?.id).filter(Boolean)
-      ).size;
-
       const updates: Record<string, any> = {
         rap: rapScrips,
+        total_sales: rapData?.totalSales ?? null,
         available_owners: item.is_limited ? uniqueOwners : null,
         copies_sold: owners.length > 0 ? owners.length : undefined,
+        data_refreshed_at: new Date().toISOString(),
       };
       // Remove undefined fields
       Object.keys(updates).forEach((k) => updates[k] === undefined && delete updates[k]);

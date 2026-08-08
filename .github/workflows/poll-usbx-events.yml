@@ -14,6 +14,12 @@ jobs:
     steps:
       - name: Trigger poll-events endpoint
         run: |
-          curl -sf \
+          http_code=$(curl -s -o response.txt -w "%{http_code}" \
             -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
-            "${{ secrets.SITE_URL }}/api/cron/poll-events?secret=${{ secrets.CRON_SECRET }}"
+            "${{ secrets.SITE_URL }}/api/cron/poll-events?secret=${{ secrets.CRON_SECRET }}&x-vercel-protection-bypass=${{ secrets.VERCEL_BYPASS_SECRET }}&x-vercel-set-bypass-cookie=true")
+          echo "HTTP status: $http_code"
+          echo "Response body:"
+          cat response.txt
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            exit 1
+          fi

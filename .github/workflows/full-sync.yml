@@ -1,0 +1,84 @@
+name: Full Site Sync
+
+# Two jobs on separate schedules, both walking their admin endpoint's full
+# pagination in one run so the site stays current without anyone needing to
+# click the admin panel buttons:
+#   - catalog-sync: discovers newly-published limiteds
+#   - refresh-all-items: re-fetches RAP/owners/price for everything already
+#     tracked, as a safety net for anything the real-time event poller
+#     (poll-usbx-events.yml) missed or drifted on
+on:
+  schedule:
+    - cron: '0 */6 * * *' # catalog sync — every 6 hours
+    - cron: '0 8 * * *'   # full refresh — once daily at 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Which sync to run'
+        required: true
+        default: 'both'
+        type: choice
+        options: [catalog, refresh, both]
+
+jobs:
+  catalog-sync:
+    if: >
+      github.event.schedule == '0 */6 * * *' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.job == 'catalog' || inputs.job == 'both'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Walk catalog sync to completion
+        run: |
+          cursor=""
+          iterations=0
+          max_iterations=500 # safety valve against an infinite loop on a bug
+
+          while [ "$iterations" -lt "$max_iterations" ]; do
+            iterations=$((iterations + 1))
+            extra=""
+            if [ -n "$cursor" ]; then extra="&cursor=$cursor"; fi
+
+            response=$(curl -s \
+              -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
+              "${{ secrets.SITE_URL }}/api/admin/sync-items?secret=${{ secrets.REFRESH_PRICES_SECRET }}${extra}")
+
+            echo "Page $iterations: $response"
+
+            nextCursor=$(echo "$response" | jq -r '.nextCursor // empty')
+            count=$(echo "$response" | jq -r '.count // 0')
+
+            if [ -z "$nextCursor" ] || [ "$count" == "0" ]; then
+              echo "Catalog sync complete after $iterations page(s)."
+              break
+            fi
+            cursor="$nextCursor"
+          done
+
+  refresh-all-items:
+    if: >
+      github.event.schedule == '0 8 * * *' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.job == 'refresh' || inputs.job == 'both'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Walk full item refresh to completion
+        run: |
+          page=1
+          iterations=0
+          max_iterations=1000 # safety valve against an infinite loop on a bug
+
+          while [ "$iterations" -lt "$max_iterations" ]; do
+            iterations=$((iterations + 1))
+
+            response=$(curl -s \
+              -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
+              "${{ secrets.SITE_URL }}/api/admin/refresh-all-items?secret=${{ secrets.REFRESH_PRICES_SECRET }}&page=$page")
+
+            echo "Page $page: $response"
+
+            done_flag=$(echo "$response" | jq -r '.done // false')
+            if [ "$done_flag" == "true" ]; then
+              echo "Full refresh complete after $page page(s)."
+              break
+            fi
+            page=$((page + 1))
+          done

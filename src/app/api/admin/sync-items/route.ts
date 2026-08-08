@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/roles';
-import { fetchItemsPage, fetchItemRap, fetchItemOwners } from '@/lib/usbxApi';
+import { fetchItemsPage, fetchItemRap } from '@/lib/usbxApi';
 import { tokensToScrips } from '@/lib/currency';
+import { syncItemOwners } from '@/lib/itemOwnersSync';
 import { revalidatePath } from 'next/cache';
 
 // ─── ID SYSTEM EXPLANATION (corrected) ───────────────────────────────────────
@@ -63,10 +64,13 @@ export async function GET(request: NextRequest) {
     const listingId = entry.id;        // same id — all enrichment endpoints use it too
 
     try {
-      // Fetch RAP and owners using the LISTING id (not the item catalog id)
-      const [rapData, owners] = await Promise.all([
+      // Fetch RAP using the LISTING id (not the item catalog id); owners get
+      // fetched and persisted into item_owners by syncItemOwners in the same
+      // call, so the item page has real ownership data as soon as this sync
+      // touches it — no separate step needed.
+      const [rapData, { uniqueOwners }] = await Promise.all([
         fetchItemRap(listingId).catch(() => null),
-        fetchItemOwners(listingId).catch(() => []),
+        syncItemOwners(itemId, listingId),
       ]);
 
       const isLimited = entry.item.normalDetails?.isLimited ?? false;
@@ -76,10 +80,6 @@ export async function GET(request: NextRequest) {
 
       const rapScrips = rapData?.rap ? toScrips(rapData.rap) : null;
       const listingPriceScrips = entry.price != null ? toScrips(entry.price) : null;
-
-      const uniqueOwners = new Set(
-        owners.map((r) => r.owner?.id).filter(Boolean)
-      ).size;
 
       const { error } = await supabase.from('items').upsert(
         {
@@ -97,8 +97,10 @@ export async function GET(request: NextRequest) {
           copies_sold: entry.stockSold,
           price_best_resale: listingPriceScrips,
           rap: rapScrips,
+          total_sales: rapData?.totalSales ?? null,
           available_owners: isLimited ? uniqueOwners : null,
           source_url: `https://beta.untitled-sandbox.com/marketplace/${itemId}`,
+          data_refreshed_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
       );

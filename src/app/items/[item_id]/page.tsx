@@ -2,10 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { fetchItem, fetchItemOwners, fetchItemRecentSales, fetchItemRap, UsbxOwnerRow, UsbxSale } from "@/lib/usbxApi";
-import { resolveUsbxAssetUrl } from "@/lib/usbxAssets";
+import { UsbxSale } from "@/lib/usbxApi";
 import { getRarity, RARITY_EMOJI, RARITY_LABEL } from "@/lib/rarity";
-import { tokensToScrips } from "@/lib/currency";
 import ItemCharts from "./ItemCharts";
 import ItemDetailsTabs from "./ItemDetailsTabs";
 import OwnersList from "./OwnersList";
@@ -30,8 +28,8 @@ function average(nums: number[]) {
   return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
-// Rough trend from recent sale prices — the API returns sales newest-first,
-// so reverse to chronological order and compare the earlier half's average
+// Rough trend from recent sale prices — sales come in newest-first, so
+// reverse to chronological order and compare the earlier half's average
 // price to the later half's.
 function computeTrend(sales: UsbxSale[]): string {
   const priced = sales.filter((s) => typeof s.price === 'number').slice().reverse();
@@ -44,11 +42,19 @@ function computeTrend(sales: UsbxSale[]): string {
   return 'Stable';
 }
 
+type OwnerRowWithAvatar = {
+  serialId: number;
+  serialNumber: string;
+  acquiredAt: string | null;
+  owner: { id: number; username: string } | null;
+  avatarUrl: string | null;
+};
+
 type HoarderEntry = { id: number; username: string; avatarUrl: string | null; count: number; latestAcquiredAt: string | null };
 
-function buildHoarders(owners: UsbxOwnerRow[], avatarByUserId: Map<number, string | null>): HoarderEntry[] {
+function buildHoarders(rows: OwnerRowWithAvatar[]): HoarderEntry[] {
   const map = new Map<number, HoarderEntry>();
-  for (const row of owners) {
+  for (const row of rows) {
     const owner = row.owner;
     if (!owner) continue;
     const existing = map.get(owner.id);
@@ -61,7 +67,7 @@ function buildHoarders(owners: UsbxOwnerRow[], avatarByUserId: Map<number, strin
       map.set(owner.id, {
         id: owner.id,
         username: owner.username,
-        avatarUrl: avatarByUserId.get(owner.id) || resolveUsbxAssetUrl(owner.profile?.headshotUrl) || null,
+        avatarUrl: row.avatarUrl,
         count: 1,
         latestAcquiredAt: row.acquiredAt,
       });
@@ -74,7 +80,11 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
   const params = await props.params;
   const itemId = params.item_id;
 
-  // Fetch item from our database (our source of truth for name/image/rap/value/etc.)
+  // Everything on this page is a plain DB read — no live USBX calls here at
+  // all. Ownership, sales, and RAP/owner counts are all kept fresh by
+  // background jobs (the event poller, catalog discovery, the daily full
+  // refresh), same model Rolimons uses: the site serves from its own
+  // database, background workers are what keep that database current.
   let item = null;
   try {
     const { data, error } = await supabase
@@ -96,37 +106,15 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
     notFound();
   }
 
-  // Live USBX data — ownership and sale history fetched using the store
-  // listing_id (entry.id from the marketplace), NOT the catalog item id.
-  // The /owners and /recent-sales endpoints require the listing id.
-  // If listing_id is null (old data pre-fix), fall back to item.id.
-  const enrichId: number = (item as any).listing_id ?? item.id;
-  let owners: UsbxOwnerRow[] = [];
-  let recentSales: UsbxSale[] = [];
-  let liveRap: Awaited<ReturnType<typeof fetchItemRap>> = null;
-  try {
-    [owners, recentSales, liveRap] = await Promise.all([
-      fetchItemOwners(enrichId),
-      fetchItemRecentSales(enrichId),
-      fetchItemRap(enrichId),
-    ]);
-  } catch (err) {
-    console.error("USBX live data fetch failed:", err);
-  }
+  // Persisted per-serial ownership snapshot (item_owners), refreshed in the
+  // background — not fetched live here.
+  const { data: ownerRows } = await supabase
+    .from('item_owners')
+    .select('serial_id, serial_number, owner_usbx_id, owner_username, owner_avatar_url, acquired_at')
+    .eq('item_id', item.id)
+    .order('acquired_at', { ascending: false });
 
-  // Simulates the next sale happening at the current lowest resale price,
-  // then recomputes the trailing average RAP with that sale folded in
-  // (RAP is just the average of every recorded sale, so
-  // newRap = (rap * totalSales + nextSalePrice) / (totalSales + 1)).
-  let rapAfterSale: number | null = null;
-  if (liveRap && liveRap.totalSales !== null && item.price_best_resale != null) {
-    const rapScrips = liveRap.currencyCode === 'TOKENS' ? tokensToScrips(liveRap.rap) : Math.round(liveRap.rap);
-    rapAfterSale = Math.round((rapScrips * liveRap.totalSales + item.price_best_resale) / (liveRap.totalSales + 1));
-  }
-
-  // The live owners API's inline profile.headshotUrl is often missing, so
-  // cross-reference our own synced profiles table for a reliable avatar.
-  const ownerIds = [...new Set(owners.map((o) => o.owner?.id).filter((id): id is number => id != null))];
+  const ownerIds = [...new Set((ownerRows || []).map((r) => r.owner_usbx_id).filter((id): id is number => id != null))];
   let avatarByUserId = new Map<number, string | null>();
   if (ownerIds.length > 0) {
     const { data: ownerProfiles } = await supabase
@@ -136,16 +124,49 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
     avatarByUserId = new Map((ownerProfiles || []).map((p) => [p.usbx_user_id, p.usbx_avatar_url]));
   }
 
-  const ownersWithAvatar = owners.map((row) => ({
-    ...row,
-    avatarUrl: row.owner ? avatarByUserId.get(row.owner.id) || resolveUsbxAssetUrl(row.owner.profile?.headshotUrl) || null : null,
+  const ownersWithAvatar: OwnerRowWithAvatar[] = (ownerRows || []).map((row) => ({
+    serialId: row.serial_id,
+    serialNumber: row.serial_number || '?',
+    acquiredAt: row.acquired_at,
+    owner: row.owner_usbx_id ? { id: row.owner_usbx_id, username: row.owner_username || 'Unknown' } : null,
+    avatarUrl: (row.owner_usbx_id ? avatarByUserId.get(row.owner_usbx_id) : null) || row.owner_avatar_url || null,
   }));
 
-  const hoarders = buildHoarders(owners, avatarByUserId);
+  // Persisted sales feed (item_recent_sales), populated by the event poller
+  // — price is already stored in scrips, so tag currency as SCRIPS to skip
+  // ItemCharts' token->scrips conversion.
+  const { data: saleRows } = await supabase
+    .from('item_recent_sales')
+    .select('event_id, sale_type, price, serial_number, buyer_username, buyer_usbx_id, seller_username, seller_usbx_id, purchased_at')
+    .eq('item_id', item.id)
+    .order('purchased_at', { ascending: false })
+    .limit(50);
+
+  const recentSales: UsbxSale[] = (saleRows || []).map((s) => ({
+    eventId: s.event_id,
+    type: s.sale_type || '',
+    price: s.price,
+    purchasedAt: s.purchased_at,
+    currency: { code: 'SCRIPS' },
+    serial: s.serial_number ? { serialNumber: s.serial_number } : null,
+    buyer: s.buyer_usbx_id && s.buyer_username ? { id: s.buyer_usbx_id, username: s.buyer_username } : null,
+    seller: s.seller_usbx_id && s.seller_username ? { id: s.seller_usbx_id, username: s.seller_username } : null,
+  }));
+
+  // Simulates the next sale happening at the current lowest resale price,
+  // then recomputes the trailing average RAP with that sale folded in
+  // (RAP is just the average of every recorded sale, so
+  // newRap = (rap * totalSales + nextSalePrice) / (totalSales + 1)).
+  let rapAfterSale: number | null = null;
+  if (item.total_sales != null && item.rap != null && item.price_best_resale != null) {
+    rapAfterSale = Math.round((item.rap * item.total_sales + item.price_best_resale) / (item.total_sales + 1));
+  }
+
+  const hoarders = buildHoarders(ownersWithAvatar);
   const knownOwners = hoarders.length;
-  const totalCopies = item.copies_sold ?? owners.length;
+  const totalCopies = item.copies_sold ?? ownersWithAvatar.length;
   const topHoarder = [...hoarders].sort((a, b) => b.count - a.count)[0] ?? null;
-  const accountedPct = totalCopies > 0 ? Math.min(100, Math.round((owners.length / totalCopies) * 100)) : null;
+  const accountedPct = totalCopies > 0 ? Math.min(100, Math.round((ownersWithAvatar.length / totalCopies) * 100)) : null;
   const topHoards = [...hoarders].sort((a, b) => b.count - a.count).slice(0, 5);
 
   // Derived variables
@@ -256,9 +277,9 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
       <div style={{ marginTop: '2rem' }}>
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Ownership</h2>
 
-        {owners.length === 0 ? (
+        {ownersWithAvatar.length === 0 ? (
           <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Live ownership data isn&apos;t available for this item.
+            Ownership data hasn&apos;t been synced for this item yet.
           </div>
         ) : (
           <>

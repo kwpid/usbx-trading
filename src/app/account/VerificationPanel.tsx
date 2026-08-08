@@ -21,9 +21,39 @@ export default function VerificationPanel() {
 
   const handleCopy = async () => {
     if (!pending) return;
-    await navigator.clipboard.writeText(pending.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+
+    try {
+      await navigator.clipboard.writeText(pending.code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      return;
+    } catch {
+      // The Clipboard API throws NotAllowedError in some contexts (e.g. the
+      // document briefly loses focus right after a click) — fall back to
+      // the older selection-based copy, which works off the same click's
+      // user gesture instead of needing focus.
+    }
+
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = pending.code;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      }
+    } catch {
+      // fall through to manual-copy hint below
+    }
+
+    setError('Could not copy automatically — select the code above and copy it manually.');
   };
 
   const handleStart = async (e: React.FormEvent) => {

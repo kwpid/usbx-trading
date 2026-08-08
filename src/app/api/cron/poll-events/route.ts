@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { fetchItemRap, fetchItemOwners, fetchItemRecentSales, fetchMarketplaceListings } from '@/lib/usbxApi';
+import { fetchItemRap, fetchItemRecentSales, fetchMarketplaceListings, fetchPublicEvents, UsbxOwnerRow } from '@/lib/usbxApi';
 import { tokensToScrips } from '@/lib/currency';
 import { sendRapUpdateWebhook, sendRecentSaleWebhook, sendDealWebhook } from '@/lib/discordWebhooks';
 import { resolveListingsToDealRows } from '@/lib/dealsSync';
+import { discoverNewItems } from '@/lib/catalogDiscovery';
+import { syncItemOwners } from '@/lib/itemOwnersSync';
 
 // One-shot version of src/scripts/market-worker.ts, meant to be triggered on
 // a schedule (GitHub Actions cron, Vercel Cron, etc.) instead of running as
@@ -13,7 +15,6 @@ import { resolveListingsToDealRows } from '@/lib/dealsSync';
 // an in-memory variable — each invocation picks up where the last one left
 // off, does one pass, and exits.
 
-const USBX_ORIGIN = 'https://beta.untitled-sandbox.com';
 const LISTING_EVENT_TYPES = new Set(['RESALE_LISTED', 'RESALE_RELISTED', 'RESALE_PURCHASED']);
 // Only alert on listings priced at least this far below RAP — matches the
 // Deals page's own "good deal" framing, but a bit stricter to avoid
@@ -29,17 +30,18 @@ async function updateItemInDb(
   imageUrl: string | null,
   oldRap: number | null
 ) {
-  const [rapData, owners] = await Promise.all([
+  const [rapData, ownersResult] = await Promise.all([
     fetchItemRap(listingId).catch(() => null),
-    isLimited ? fetchItemOwners(listingId).catch(() => []) : Promise.resolve([]),
+    isLimited ? syncItemOwners(itemId, listingId).catch(() => ({ owners: [] as UsbxOwnerRow[], uniqueOwners: 0 })) : Promise.resolve({ owners: [] as UsbxOwnerRow[], uniqueOwners: 0 }),
   ]);
+  const uniqueOwners = ownersResult.uniqueOwners;
 
   const rapRaw = rapData?.rap ?? null;
   const rapScrips = rapRaw != null ? tokensToScrips(rapRaw) : null;
-  const uniqueOwners = new Set(owners.map((r) => r.owner?.id).filter(Boolean)).size;
 
-  const updates: Record<string, any> = {};
+  const updates: Record<string, any> = { data_refreshed_at: new Date().toISOString() };
   if (rapScrips !== null) updates.rap = rapScrips;
+  if (rapData?.totalSales != null) updates.total_sales = rapData.totalSales;
   if (isLimited && uniqueOwners > 0) updates.available_owners = uniqueOwners;
 
   if (Object.keys(updates).length > 0) {
@@ -190,17 +192,16 @@ export async function GET(request: NextRequest) {
   let lastSeenEventId = startingCursor;
   let processed = 0;
   let listingsDirty = false;
+  let discovered = 0;
 
   try {
-    const url = `${USBX_ORIGIN}/api/public-index/events?eventType=RESALE_PURCHASED,RESALE_LISTED,RESALE_RELISTED&limit=50`;
-    const res = await fetch(url, { cache: 'no-store' });
-    const json = await res.json();
-    if (json.status !== 'success' || !json.data?.items) {
-      throw new Error('Bad response from events API');
-    }
+    const rawEvents = await fetchPublicEvents({
+      eventTypes: ['RESALE_PURCHASED', 'RESALE_LISTED', 'RESALE_RELISTED'],
+      limit: 50,
+    });
 
     // Process oldest-first so the cursor advances monotonically.
-    const events: any[] = [...json.data.items].sort((a: any, b: any) => a.id - b.id);
+    const events: any[] = [...rawEvents].sort((a: any, b: any) => a.id - b.id);
 
     for (const event of events) {
       if (event.id <= lastSeenEventId) continue;
@@ -243,6 +244,11 @@ export async function GET(request: NextRequest) {
     if (listingsDirty) {
       await refreshListingsAndAlertDeals();
     }
+
+    // New items don't reliably fire a RESALE_* event (their first activity
+    // is often a STORE_PURCHASE), so discovery can't rely on the event loop
+    // above — check the newest listings window every run instead.
+    discovered = await discoverNewItems();
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Poll failed' }, { status: 502 });
   }
@@ -255,5 +261,5 @@ export async function GET(request: NextRequest) {
     if (error) console.error('Failed to persist event cursor:', error.message);
   }
 
-  return NextResponse.json({ success: true, processed, lastSeenEventId });
+  return NextResponse.json({ success: true, processed, discovered, lastSeenEventId });
 }

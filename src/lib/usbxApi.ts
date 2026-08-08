@@ -18,9 +18,24 @@ export class UsbxApiError extends Error {
   }
 }
 
-async function usbxGetRaw(path: string): Promise<any> {
-  const res = await fetch(`${USBX_ORIGIN}${path}`, {
-    cache: 'no-store',
+// Vercel's serverless IP ranges get blocked by USBX's Cloudflare bot
+// protection (confirmed: same request succeeds from a plain residential IP
+// or from a Cloudflare Worker, but 403s from Vercel). When USBX_PROXY_URL is
+// set, route every request through a small Cloudflare Worker that forwards
+// to USBX instead — see usbx-trading-api.tnivens73.workers.dev. Falls back
+// to hitting USBX directly when unset (local dev, where the direct call
+// already works fine).
+function resolveUsbxRequest(path: string): { url: string; headers: Record<string, string> } {
+  const proxyUrl = process.env.USBX_PROXY_URL;
+  if (proxyUrl) {
+    return {
+      url: `${proxyUrl.replace(/\/$/, '')}${path}`,
+      headers: { 'x-proxy-secret': process.env.USBX_PROXY_SECRET || '' },
+    };
+  }
+
+  return {
+    url: `${USBX_ORIGIN}${path}`,
     headers: {
       // Serverless/edge fetches otherwise carry no User-Agent at all, which
       // is an easy bot-protection tripwire (Cloudflare, etc.) — send
@@ -30,7 +45,12 @@ async function usbxGetRaw(path: string): Promise<any> {
       Accept: 'application/json, text/plain, */*',
       Referer: `${USBX_ORIGIN}/`,
     },
-  });
+  };
+}
+
+async function usbxGetRaw(path: string): Promise<any> {
+  const { url, headers } = resolveUsbxRequest(path);
+  const res = await fetch(url, { cache: 'no-store', headers });
   if (!res.ok) {
     throw new UsbxApiError(res.status, path);
   }
@@ -316,4 +336,16 @@ export type UsbxSearchResult = { type: string; id: number; title: string; subtit
 export async function searchSite(query: string): Promise<UsbxSearchResult[]> {
   const data = await usbxGet<{ results: UsbxSearchResult[] }>(`/api/search/?q=${encodeURIComponent(query)}`);
   return data?.results ?? [];
+}
+
+// Real-time market events (listings, relistings, purchases) — used by the
+// worker script and the cron poll route to detect new activity since the
+// last check. Routed through usbxGetRaw like everything else, so it picks
+// up the Cloudflare Worker proxy automatically when configured.
+export async function fetchPublicEvents(params: { eventTypes: string[]; limit?: number }): Promise<any[]> {
+  const qs = new URLSearchParams();
+  qs.set('eventType', params.eventTypes.join(','));
+  qs.set('limit', String(params.limit ?? 50));
+  const json = await usbxGetRaw(`/api/public-index/events?${qs.toString()}`);
+  return json.data?.items ?? [];
 }

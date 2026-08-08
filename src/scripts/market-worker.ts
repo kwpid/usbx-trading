@@ -20,10 +20,12 @@
 // matches the wrong row if ids happen to collide.
 
 import { supabase } from '../lib/supabase';
-import { fetchItemRap, fetchItemOwners, fetchItemRecentSales, fetchMarketplaceListings } from '../lib/usbxApi';
+import { fetchItemRap, fetchItemRecentSales, fetchMarketplaceListings, fetchPublicEvents, UsbxOwnerRow } from '../lib/usbxApi';
 import { tokensToScrips } from '../lib/currency';
 import { sendRapUpdateWebhook, sendRecentSaleWebhook } from '../lib/discordWebhooks';
 import { resolveListingsToDealRows } from '../lib/dealsSync';
+import { discoverNewItems } from '../lib/catalogDiscovery';
+import { syncItemOwners } from '../lib/itemOwnersSync';
 
 const LISTING_EVENT_TYPES = new Set(['RESALE_LISTED', 'RESALE_RELISTED', 'RESALE_PURCHASED']);
 
@@ -55,7 +57,6 @@ async function refreshListingsWindow() {
 }
 
 const POLL_INTERVAL_MS = 5000;
-const USBX_ORIGIN = 'https://beta.untitled-sandbox.com';
 
 let lastSeenEventId = 0;
 
@@ -68,17 +69,18 @@ async function updateItemInDb(
   imageUrl: string | null,
   oldRap: number | null
 ) {
-  const [rapData, owners] = await Promise.all([
+  const [rapData, ownersResult] = await Promise.all([
     fetchItemRap(listingId).catch(() => null),
-    isLimited ? fetchItemOwners(listingId).catch(() => []) : Promise.resolve([]),
+    isLimited ? syncItemOwners(itemId, listingId).catch(() => ({ owners: [] as UsbxOwnerRow[], uniqueOwners: 0 })) : Promise.resolve({ owners: [] as UsbxOwnerRow[], uniqueOwners: 0 }),
   ]);
+  const uniqueOwners = ownersResult.uniqueOwners;
 
   const rapRaw = rapData?.rap ?? null;
   const rapScrips = rapRaw != null ? tokensToScrips(rapRaw) : null;
-  const uniqueOwners = new Set(owners.map((r) => r.owner?.id).filter(Boolean)).size;
 
-  const updates: Record<string, any> = {};
+  const updates: Record<string, any> = { data_refreshed_at: new Date().toISOString() };
   if (rapScrips !== null) updates.rap = rapScrips;
+  if (rapData?.totalSales != null) updates.total_sales = rapData.totalSales;
   if (isLimited && uniqueOwners > 0) updates.available_owners = uniqueOwners;
 
   if (Object.keys(updates).length > 0) {
@@ -179,16 +181,13 @@ async function updateItemInDb(
 
 async function pollEvents() {
   try {
-    const url = `${USBX_ORIGIN}/api/public-index/events?eventType=RESALE_PURCHASED,RESALE_LISTED,RESALE_RELISTED&limit=50`;
-    const res = await fetch(url);
-    const json = await res.json();
-
-    if (json.status !== 'success' || !json.data?.items) {
-      throw new Error('Bad response from events API');
-    }
+    const rawEvents = await fetchPublicEvents({
+      eventTypes: ['RESALE_PURCHASED', 'RESALE_LISTED', 'RESALE_RELISTED'],
+      limit: 50,
+    });
 
     // Process oldest-first so lastSeenEventId advances monotonically
-    const events: any[] = [...json.data.items].sort((a: any, b: any) => a.id - b.id);
+    const events: any[] = [...rawEvents].sort((a: any, b: any) => a.id - b.id);
     let listingsDirty = false;
 
     for (const event of events) {
@@ -239,6 +238,14 @@ async function pollEvents() {
 
     if (listingsDirty) {
       await refreshListingsWindow();
+    }
+
+    // New items don't reliably fire a RESALE_* event (their first activity
+    // is often a STORE_PURCHASE), so discovery can't rely on the event
+    // stream above — check the newest listings window every cycle instead.
+    const discovered = await discoverNewItems();
+    if (discovered > 0) {
+      console.log(` ✓ Discovered ${discovered} new item(s)`);
     }
   } catch (err: any) {
     console.error(`[Worker] Poll error: ${err.message}`);
