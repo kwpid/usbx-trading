@@ -12,14 +12,15 @@ async function catalogOneListing(listing: UsbxMarketplaceListing): Promise<boole
   const isLimited = listing.item.normalDetails?.isLimited ?? false;
 
   try {
-    const [rapData, { uniqueOwners }] = await Promise.all([
-      fetchItemRap(itemId).catch(() => null),
-      syncItemOwners(itemId, itemId),
-    ]);
-
+    const rapData = await fetchItemRap(itemId).catch(() => null);
     const rapScrips = rapData?.rap != null ? toScrips(rapData.rap, rapData.currencyCode) : null;
     const priceScrips = listing.price != null ? toScrips(listing.price, listing.currencyUsed?.code) : null;
 
+    // The items row must exist before item_owners can be written — that
+    // table has a foreign key on item_id, so inserting ownership for a
+    // brand-new item before this upsert runs fails silently on the FK
+    // constraint (exactly the bug where a freshly-published limited never
+    // shows up in anyone's profile inventory).
     const { error } = await supabase.from('items').upsert(
       {
         id: itemId,
@@ -31,7 +32,6 @@ async function catalogOneListing(listing: UsbxMarketplaceListing): Promise<boole
         price_best_resale: priceScrips,
         rap: rapScrips,
         total_sales: rapData?.totalSales ?? null,
-        available_owners: isLimited ? uniqueOwners : null,
         source_url: `https://beta.untitled-sandbox.com/marketplace/${itemId}`,
         data_refreshed_at: new Date().toISOString(),
       },
@@ -39,6 +39,12 @@ async function catalogOneListing(listing: UsbxMarketplaceListing): Promise<boole
     );
 
     if (error) throw new Error(error.message);
+
+    const { uniqueOwners } = await syncItemOwners(itemId, itemId);
+    if (isLimited && uniqueOwners > 0) {
+      await supabase.from('items').update({ available_owners: uniqueOwners }).eq('id', itemId);
+    }
+
     return true;
   } catch (err: any) {
     console.warn(`Failed to catalog new item ${listing.id}: ${err.message}`);

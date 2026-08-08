@@ -64,14 +64,7 @@ export async function GET(request: NextRequest) {
     const listingId = entry.id;        // same id — all enrichment endpoints use it too
 
     try {
-      // Fetch RAP using the LISTING id (not the item catalog id); owners get
-      // fetched and persisted into item_owners by syncItemOwners in the same
-      // call, so the item page has real ownership data as soon as this sync
-      // touches it — no separate step needed.
-      const [rapData, { uniqueOwners }] = await Promise.all([
-        fetchItemRap(listingId).catch(() => null),
-        syncItemOwners(itemId, listingId),
-      ]);
+      const rapData = await fetchItemRap(listingId).catch(() => null);
 
       const isLimited = entry.item.normalDetails?.isLimited ?? false;
       const isTokens = entry.currencyUsed?.code !== 'SCRIPS';
@@ -81,6 +74,12 @@ export async function GET(request: NextRequest) {
       const rapScrips = rapData?.rap ? toScrips(rapData.rap) : null;
       const listingPriceScrips = entry.price != null ? toScrips(entry.price) : null;
 
+      // The items row must exist before item_owners can be written — that
+      // table has a foreign key on item_id, so syncItemOwners has to run
+      // AFTER this upsert, not concurrently with it (a brand-new item's
+      // ownership insert would silently fail on the FK constraint
+      // otherwise — exactly the bug where a freshly-published limited
+      // never shows up in anyone's profile inventory).
       const { error } = await supabase.from('items').upsert(
         {
           id: itemId,
@@ -98,7 +97,6 @@ export async function GET(request: NextRequest) {
           price_best_resale: listingPriceScrips,
           rap: rapScrips,
           total_sales: rapData?.totalSales ?? null,
-          available_owners: isLimited ? uniqueOwners : null,
           source_url: `https://beta.untitled-sandbox.com/marketplace/${itemId}`,
           data_refreshed_at: new Date().toISOString(),
         },
@@ -109,6 +107,11 @@ export async function GET(request: NextRequest) {
         errors.push({ id: itemId, error: error.message });
         console.error(`Sync upsert failed for item ${itemId}:`, error.message);
         continue;
+      }
+
+      const { uniqueOwners } = await syncItemOwners(itemId, listingId);
+      if (isLimited && uniqueOwners > 0) {
+        await supabase.from('items').update({ available_owners: uniqueOwners }).eq('id', itemId);
       }
 
       upserted++;
