@@ -2,14 +2,38 @@
 
 import { searchSite } from '@/lib/usbxApi';
 import { resolveUsbxAssetUrl } from '@/lib/usbxAssets';
+import { supabase } from '@/lib/supabase';
 
 export async function searchPlayers(query: string) {
   if (!query.trim()) return [];
   try {
     const results = await searchSite(query);
-    return results
+    const players = results
       .filter((r) => r.type === 'user')
-      .map((r) => ({ ...r, imageUrl: resolveUsbxAssetUrl(r.imageUrl) }));
+      .map((r) => ({ id: r.id, username: r.title, avatarUrl: resolveUsbxAssetUrl(r.imageUrl) }));
+
+    if (players.length === 0) return [];
+
+    // Enrich with rank/value/RAP from our own leaderboard snapshot, same
+    // data source and ranking the leaderboards page itself uses — cards
+    // read the same everywhere on the site instead of a bare list here.
+    const { data: leaderData } = await supabase.rpc('get_latest_player_snapshots');
+    if (!leaderData) return players;
+
+    const sorted = [...leaderData].sort((a: any, b: any) => (b.total_value ?? 0) - (a.total_value ?? 0));
+    const rankById = new Map<number, number>();
+    const statsById = new Map<number, { totalValue: number; totalRap: number }>();
+    sorted.forEach((row: any, idx: number) => {
+      rankById.set(row.usbx_user_id, idx + 1);
+      statsById.set(row.usbx_user_id, { totalValue: row.total_value ?? 0, totalRap: row.total_rap ?? 0 });
+    });
+
+    return players.map((p) => ({
+      ...p,
+      rank: rankById.get(p.id) ?? null,
+      totalValue: statsById.get(p.id)?.totalValue ?? null,
+      totalRap: statsById.get(p.id)?.totalRap ?? null,
+    }));
   } catch (err) {
     console.error('searchPlayers error:', err);
     return [];

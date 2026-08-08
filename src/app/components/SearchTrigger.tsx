@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import RarityBadge from './RarityBadge';
+import PlayerResultCard, { PlayerResult } from './PlayerResultCard';
 import { searchLimitedsAction } from '@/app/search/actions';
 import { searchPlayers } from '@/app/player-lookup/actions';
 
@@ -14,8 +15,6 @@ type LimitedResult = {
   value: number | null;
   available_owners: number | null;
 };
-
-type PlayerResult = { id: number; title: string; subtitle: string | null; imageUrl: string | null };
 
 type Tab = 'limiteds' | 'players';
 
@@ -209,25 +208,9 @@ export default function SearchTrigger() {
                   No players found.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
                   {players.map((player) => (
-                    <button
-                      key={player.id}
-                      onClick={() => goTo(`/player/${player.id}`)}
-                      className="card"
-                      style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.6rem 0.85rem', textAlign: 'left' }}
-                    >
-                      {player.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={player.imageUrl} alt={player.title} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--bg-tertiary)' }} />
-                      )}
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{player.title}</div>
-                        {player.subtitle && <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{player.subtitle}</div>}
-                      </div>
-                    </button>
+                    <PlayerResultCard key={player.id} player={player} onClick={() => setOpen(false)} />
                   ))}
                 </div>
               )}
