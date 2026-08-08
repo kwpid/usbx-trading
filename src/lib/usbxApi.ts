@@ -26,8 +26,12 @@ export class UsbxApiError extends Error {
 // to hitting USBX directly when unset (local dev, where the direct call
 // already works fine).
 function resolveUsbxRequest(path: string): { url: string; headers: Record<string, string> } {
-  const proxyUrl = process.env.USBX_PROXY_URL;
-  if (proxyUrl) {
+  const proxyUrlRaw = process.env.USBX_PROXY_URL;
+  if (proxyUrlRaw) {
+    // Tolerate the env var being entered without a scheme (e.g.
+    // "usbx-proxy.workers.dev" instead of "https://usbx-proxy.workers.dev")
+    // — fetch() throws an opaque "Failed to parse URL" otherwise.
+    const proxyUrl = /^https?:\/\//i.test(proxyUrlRaw) ? proxyUrlRaw : `https://${proxyUrlRaw}`;
     return {
       url: `${proxyUrl.replace(/\/$/, '')}${path}`,
       headers: { 'x-proxy-secret': process.env.USBX_PROXY_SECRET || '' },
@@ -273,6 +277,14 @@ export type UsbxProfileSummary = {
       headshotUrl: string | null;
       bio: string | null;
     };
+  };
+  // Explicit, authoritative privacy flags straight from the profile summary
+  // — cheap to check (this call is already made regardless) versus the
+  // expensive way of finding out (attempting the full paginated inventory
+  // fetch and catching the 403).
+  privacy?: {
+    viewInventory?: string;
+    canViewInventory?: boolean;
   };
 };
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { fetchProfileSummary, fetchAllProfileInventory, UsbxApiError } from "@/lib/usbxApi";
+import { fetchProfileSummary } from "@/lib/usbxApi";
 import { resolveUsbxAssetUrl } from "@/lib/usbxAssets";
 import { getSession } from "@/lib/session";
 import { logout } from "../../account/actions";
@@ -60,27 +60,39 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
     notFound();
   }
 
-  let inventory: Awaited<ReturnType<typeof fetchAllProfileInventory>> = [];
-  let inventoryIsPrivate = false;
-  try {
-    inventory = await fetchAllProfileInventory(userId);
-  } catch (err) {
-    if (err instanceof UsbxApiError && err.status === 403) {
-      // Expected, not a bug — /api/profiles/{id}/inventory returns 403 for
-      // a player who has set their inventory to private.
-      inventoryIsPrivate = true;
-    } else {
-      console.error('Failed to load profile inventory:', err instanceof Error ? err.message : err);
-    }
+  // Privacy is checked live off the summary call (cheap — it's already
+  // made regardless) rather than by attempting the old heavy paginated
+  // inventory fetch and catching a 403. Explicitly false = private; missing
+  // (some API versions may not send it) defaults to public rather than
+  // hiding a profile that's actually visible.
+  const inventoryIsPrivate = summary.privacy?.canViewInventory === false;
+
+  // Ownership comes straight from our own item_owners table — populated by
+  // the background sync jobs (event poller, catalog discovery, daily
+  // refresh), not fetched live here. This is the same instant-DB-read model
+  // used for item pages, just queried from the player's side. It only
+  // covers items we track (same scope the old live-fetch path already
+  // limited itself to), and privacy is still enforced above using the
+  // account's *current* setting, so this never shows a private player's
+  // ownership just because our item-side sync happened to observe it.
+  type CollectibleRow = { storeItemId: number; serialId: number; serialNumber: string; acquiredAt: string | null };
+  let collectibleRows: CollectibleRow[] = [];
+
+  if (!inventoryIsPrivate) {
+    const { data: ownedRows, error: ownedErr } = await supabase
+      .from('item_owners')
+      .select('item_id, serial_id, serial_number, acquired_at')
+      .eq('owner_usbx_id', Number(userId));
+    if (ownedErr) console.error('Failed to load owned items:', ownedErr.message);
+    collectibleRows = (ownedRows || []).map((r) => ({
+      storeItemId: r.item_id,
+      serialId: r.serial_id,
+      serialNumber: r.serial_number || '?',
+      acquiredAt: r.acquired_at,
+    }));
   }
 
-  // Cross-reference against our own catalog to find which owned items are
-  // limiteds we track, and pull their RAP/Value/image for display — USBX's
-  // public inventory endpoint doesn't include pricing data itself.
-  // Items acquired via non-store means (gifts, event grants, etc.) can have
-  // a null storeItemId — filter those out before querying, since Postgres's
-  // .in() rejects a literal null in the list and fails the whole query.
-  const storeItemIds = [...new Set(inventory.map((row) => row.item.storeItemId).filter((id): id is number => id != null))];
+  const storeItemIds = [...new Set(collectibleRows.map((r) => r.storeItemId))];
   let dbItemsById = new Map<number, any>();
   if (storeItemIds.length > 0) {
     const { data, error } = await supabase
@@ -95,18 +107,18 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   // Highest value first, falling back to highest RAP when values aren't
   // set (Value defaults to 0 and is only populated by manual value-change
   // tracking, so most items sort on RAP in practice).
-  const collectibles = inventory
-    .filter((row) => dbItemsById.has(row.item.storeItemId))
+  const collectibles = collectibleRows
+    .filter((row) => dbItemsById.has(row.storeItemId))
     .sort((a, b) => {
-      const itemA = dbItemsById.get(a.item.storeItemId);
-      const itemB = dbItemsById.get(b.item.storeItemId);
+      const itemA = dbItemsById.get(a.storeItemId);
+      const itemB = dbItemsById.get(b.storeItemId);
       const valueDiff = (itemB?.value || 0) - (itemA?.value || 0);
       if (valueDiff !== 0) return valueDiff;
       return (itemB?.rap || 0) - (itemA?.rap || 0);
     });
 
-  const totalValue = collectibles.reduce((sum, row) => sum + (dbItemsById.get(row.item.storeItemId)?.value || 0), 0);
-  const totalRap = collectibles.reduce((sum, row) => sum + (dbItemsById.get(row.item.storeItemId)?.rap || 0), 0);
+  const totalValue = collectibles.reduce((sum, row) => sum + (dbItemsById.get(row.storeItemId)?.value || 0), 0);
+  const totalRap = collectibles.reduce((sum, row) => sum + (dbItemsById.get(row.storeItemId)?.rap || 0), 0);
 
   // Fetch full history for charting, including each day's inventory snapshot
   // so the chart can show "what they had on this date" on click.
@@ -140,26 +152,28 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
     Collectibles: <svg viewBox="0 0 24 24" width="24" height="24" stroke="#a07855" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
   };
 
-  // Stack hoards by storeItemId — one card per unique item, copies grouped
+  // Stack hoards by storeItemId — one card per unique item, copies grouped.
+  // dbItem is always present here since `collectibles` was already filtered
+  // to rows with a matching items row above.
   const stackedMap = new Map<number, InventoryItem>();
   for (const row of collectibles) {
-    const dbItem = dbItemsById.get(row.item.storeItemId);
+    const dbItem = dbItemsById.get(row.storeItemId);
     const copy = {
       serialId: row.serialId,
-      serialNumber: row.serialNumber || '?',
+      serialNumber: row.serialNumber,
       acquiredAt: row.acquiredAt,
     };
-    const existing = stackedMap.get(row.item.storeItemId);
+    const existing = stackedMap.get(row.storeItemId);
     if (existing) {
       existing.copies.push(copy);
     } else {
-      stackedMap.set(row.item.storeItemId, {
-        storeItemId: row.item.storeItemId,
-        name: dbItem?.name || row.item.name,
-        imageUrl: dbItem?.item_image_url || row.item.resolvedPreviewUrl || '',
-        rap: dbItem?.rap || 0,
-        value: dbItem?.value || 0,
-        availableOwners: dbItem?.available_owners,
+      stackedMap.set(row.storeItemId, {
+        storeItemId: row.storeItemId,
+        name: dbItem.name,
+        imageUrl: dbItem.item_image_url || '',
+        rap: dbItem.rap || 0,
+        value: dbItem.value || 0,
+        availableOwners: dbItem.available_owners,
         copies: [copy],
       });
     }
