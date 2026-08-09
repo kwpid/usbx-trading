@@ -58,7 +58,7 @@ function fmtDate(iso: string) {
 }
 
 function fmtDateTime(iso: string | null) {
-  if (!iso) return '—';
+  if (!iso) return 'Unknown';
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -79,10 +79,9 @@ const CHART_STYLE = {
   itemStyle: { color: 'var(--text-primary)' },
 };
 
-function NoData({ message = 'No data yet. Run a pricing refresh to populate charts.' }: { message?: string }) {
+function NoData({ message = 'No recent data on this item.' }: { message?: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 260, color: 'var(--text-secondary)', fontSize: '0.95rem', gap: '0.5rem' }}>
-      <span style={{ fontSize: '1.5rem' }}>📊</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 260, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
       {message}
     </div>
   );
@@ -107,7 +106,7 @@ function HistoryChart({ data }: { data: HistoryRow[] }) {
 
 function ValueChart({ data }: { data: HistoryRow[] }) {
   const pts = data.filter((r) => r.value != null).map((r) => ({ date: fmtDate(r.recorded_at), Value: r.value }));
-  if (pts.length === 0) return <NoData message="Value is tracked manually — no history yet." />;
+  if (pts.length === 0) return <NoData message="No recent data on this item." />;
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={pts} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
@@ -157,7 +156,7 @@ function OwnersChart({ data }: { data: HistoryRow[] }) {
 }
 
 function RecentSalesChart({ sales, rap }: { sales: Sale[]; rap: number | null | undefined }) {
-  if (sales.length === 0) return <NoData message="No recent sales data available for this item." />;
+  if (sales.length === 0) return <NoData message="No recent data on this item." />;
 
   // The API returns sales newest-first; take the most recent 30, then flip
   // to chronological order so the chart reads left (past) to right (recent),

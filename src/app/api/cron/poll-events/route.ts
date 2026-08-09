@@ -36,8 +36,13 @@ async function updateItemInDb(
   ]);
   const uniqueOwners = ownersResult.uniqueOwners;
 
+  // Respect the RAP endpoint's own currencyCode — some items trade in
+  // SCRIPS directly, so unconditionally assuming tokens inflates their RAP
+  // by 50x (the same bug fixed in refresh-all-items/route.ts).
   const rapRaw = rapData?.rap ?? null;
-  const rapScrips = rapRaw != null ? tokensToScrips(rapRaw) : null;
+  const rapScrips = rapRaw != null
+    ? (rapData?.currencyCode !== 'SCRIPS' ? tokensToScrips(rapRaw) : Math.round(rapRaw))
+    : null;
 
   const updates: Record<string, any> = { data_refreshed_at: new Date().toISOString() };
   if (rapScrips !== null) updates.rap = rapScrips;
