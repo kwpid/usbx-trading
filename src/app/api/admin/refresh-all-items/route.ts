@@ -54,10 +54,13 @@ export async function GET(request: NextRequest) {
         syncItemOwners(item.id, enrichId),
       ]);
 
-      // We don't know the currency from the DB alone; assume tokens (most common)
-      // The RAP endpoint returns the value in its own unit, then we convert
+      // The RAP endpoint tells us its own currency — some items trade in
+      // SCRIPS directly, so unconditionally assuming tokens (as this used
+      // to) silently inflates a scrips-denominated RAP by 50x.
       const rapRaw = rapData?.rap ?? null;
-      const rapScrips = rapRaw != null ? tokensToScrips(rapRaw) : null;
+      const rapScrips = rapRaw != null
+        ? (rapData?.currencyCode !== 'SCRIPS' ? tokensToScrips(rapRaw) : Math.round(rapRaw))
+        : null;
 
       const updates: Record<string, any> = {
         rap: rapScrips,
