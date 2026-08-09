@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import RarityBadge from '@/app/components/RarityBadge';
+import { setItemNft } from './nftActions';
 
 export type InventoryCopy = {
   serialId: number;
@@ -23,6 +24,8 @@ export type InventoryItem = {
 type Props = {
   items: InventoryItem[];
   inventoryIsPrivate: boolean;
+  nftItemIds?: number[];
+  isOwnProfile?: boolean;
 };
 
 function formatNumber(num: number | null | undefined) {
@@ -109,7 +112,7 @@ function CopiesModal({ item, onClose }: { item: InventoryItem; onClose: () => vo
   );
 }
 
-export default function ProfileInventoryClient({ items, inventoryIsPrivate }: Props) {
+export default function ProfileInventoryClient({ items, inventoryIsPrivate, nftItemIds, isOwnProfile }: Props) {
   const [sortBy, setSortBy] = useState('highest_value');
   const [filterBy, setFilterBy] = useState('value');
   const [min, setMin] = useState('');
@@ -117,6 +120,30 @@ export default function ProfileInventoryClient({ items, inventoryIsPrivate }: Pr
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [copiesModalItem, setCopiesModalItem] = useState<InventoryItem | null>(null);
+  const [nftSet, setNftSet] = useState<Set<number>>(new Set(nftItemIds ?? []));
+  const [nftBusyId, setNftBusyId] = useState<number | null>(null);
+
+  const toggleNft = async (storeItemId: number) => {
+    const willBeNft = !nftSet.has(storeItemId);
+    setNftBusyId(storeItemId);
+    setNftSet((prev) => {
+      const next = new Set(prev);
+      if (willBeNft) next.add(storeItemId);
+      else next.delete(storeItemId);
+      return next;
+    });
+    const result = await setItemNft(storeItemId, willBeNft);
+    setNftBusyId(null);
+    if (result.error) {
+      // Revert on failure
+      setNftSet((prev) => {
+        const next = new Set(prev);
+        if (willBeNft) next.delete(storeItemId);
+        else next.add(storeItemId);
+        return next;
+      });
+    }
+  };
 
   const ITEMS_PER_PAGE = 100;
 
@@ -350,6 +377,37 @@ export default function ProfileInventoryClient({ items, inventoryIsPrivate }: Pr
 
                 <Link href={`/items/${item.storeItemId}`} style={{ position: 'relative', height: '140px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <RarityBadge owners={item.availableOwners} />
+                  {nftSet.has(item.storeItemId) && (
+                    <div
+                      title="Not For Trade"
+                      style={{
+                        position: 'absolute', top: '0.5rem', left: '0.5rem', zIndex: 10,
+                        fontSize: '1.2rem', filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.8))',
+                      }}
+                    >
+                      🔒
+                    </div>
+                  )}
+                  {isOwnProfile && (
+                    <button
+                      type="button"
+                      title={nftSet.has(item.storeItemId) ? 'Unmark as Not For Trade' : 'Mark as Not For Trade'}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleNft(item.storeItemId);
+                      }}
+                      disabled={nftBusyId === item.storeItemId}
+                      style={{
+                        position: 'absolute', bottom: '0.5rem', left: '0.5rem', zIndex: 10,
+                        background: nftSet.has(item.storeItemId) ? 'var(--danger-color)' : 'rgba(0,0,0,0.55)',
+                        color: '#fff', fontWeight: 700, fontSize: '0.6rem', letterSpacing: '0.02em',
+                        padding: '0.2rem 0.4rem', borderRadius: '4px', opacity: nftBusyId === item.storeItemId ? 0.6 : 1,
+                      }}
+                    >
+                      {nftSet.has(item.storeItemId) ? 'NFT ✓' : 'Mark NFT'}
+                    </button>
+                  )}
                   {copyCount > 1 && (
                     <div style={{
                       position: 'absolute', top: '0.5rem', right: '0.5rem',

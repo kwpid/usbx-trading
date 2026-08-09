@@ -36,3 +36,12 @@ export async function requireAdmin(): Promise<CurrentProfile | null> {
   if (!profile || profile.role !== 'admin') return null;
   return profile;
 }
+
+// Mods (a.k.a. Value Changers — see the Value Mod badge) can edit item
+// values/trend/demand but not the structural stuff (rename, image URL,
+// full admin dashboard). Admins pass this too.
+export async function requireEditor(): Promise<CurrentProfile | null> {
+  const profile = await getCurrentProfile();
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'mod')) return null;
+  return profile;
+}

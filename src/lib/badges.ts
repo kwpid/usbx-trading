@@ -165,6 +165,24 @@ export const BADGES: BadgeDef[] = [
     // Manual-only — granted and revoked by an admin, never auto-awarded.
     check: () => false,
   },
+  {
+    id: 'verified',
+    name: 'Verified',
+    description: 'Completed USBX profile verification.',
+    icon: '/badges/verified.png',
+    tier: 'blue',
+    category: 'Community',
+    // Granted directly in completeVerification() at the moment verification
+    // succeeds, not evaluated here — there's no inventory-shaped signal for
+    // "verified" the way the rest of this file's checks work off.
+    check: () => false,
+  },
 ];
+
+// Priority order for the single badge shown inline next to a username
+// (profile header, leaderboard cards, search results) — highest first.
+// Only ever one badge shows there at a time, unlike the full grid on
+// /badges, so this picks which one wins.
+export const INLINE_BADGE_PRIORITY = ['developer', 'value_mod', 'verified'];
 
 export const BADGES_BY_ID = new Map(BADGES.map((b) => [b.id, b]));

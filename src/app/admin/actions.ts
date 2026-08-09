@@ -1,7 +1,7 @@
 'use server'
 
 import { supabase } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/roles';
+import { requireAdmin, requireEditor } from '@/lib/roles';
 import { fetchItemFullDetails, extractUsbxItemId } from '@/lib/usbxApi';
 import { revalidatePath } from 'next/cache';
 export async function fetchItemFromApiAction(itemId: string) {
@@ -222,8 +222,8 @@ export async function updateItemAction(itemId: string, updates: any) {
 }
 
 export async function updateItemValueAction(itemId: string, data: { value: number, trend: string, demand: string, reason: string }) {
-  if (!(await requireAdmin())) {
-    return { error: 'Admins only.', success: false };
+  if (!(await requireEditor())) {
+    return { error: 'Admins and value editors only.', success: false };
   }
 
   try {

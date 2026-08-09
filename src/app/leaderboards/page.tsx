@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import BadgeIcon from '@/app/components/BadgeIcon';
+import { getInlineBadges } from '@/lib/inlineBadge';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,11 +42,13 @@ async function getLeaderboard(page: number) {
     .in('usbx_user_id', userIds);
 
   const profileMap = new Map((profiles || []).map((p: any) => [p.usbx_user_id, p]));
+  const inlineBadges = await getInlineBadges(userIds);
 
   const rows = pageRows.map((row: any, i: number) => ({
     ...row,
     rank: offset + i + 1,
     profile: profileMap.get(row.usbx_user_id) ?? null,
+    inlineBadge: inlineBadges.get(row.usbx_user_id) ?? null,
   }));
 
   return { rows, total };
@@ -121,10 +125,13 @@ export default async function LeaderboardsPage({
                   fontSize: '0.9rem',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                   borderBottom: '1px solid var(--border-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
                 }}>
-                  {username}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{username}</span>
+                  {row.inlineBadge && <BadgeIcon badge={row.inlineBadge} size={14} />}
                 </div>
 
                 {/* Avatar */}

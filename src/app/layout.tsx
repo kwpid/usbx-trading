@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Link from "next/link";
 import SearchTrigger from "./components/SearchTrigger";
+import AdminNavLink from "./components/AdminNavLink";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -33,6 +34,7 @@ export default function RootLayout({
                 <Link href="/item-value-changes" className="nav-dropdown-item">Value Changes</Link>
                 <Link href="/recent-sales" className="nav-dropdown-item">Recent Sales</Link>
                 <Link href="/trade-calculator" className="nav-dropdown-item">Trade Calculator</Link>
+                <Link href="/trade-ads" className="nav-dropdown-item">Trade Ads</Link>
                 <Link href="/projected-items" className="nav-dropdown-item">Projected Items</Link>
                 <Link href="/badges" className="nav-dropdown-item">Trade.Badges</Link>
               </div>
@@ -62,15 +64,17 @@ export default function RootLayout({
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               <span>Account</span>
             </Link>
-            <Link href="/admin" className="nav-icon-link">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-              <span>More</span>
-            </Link>
+            <AdminNavLink />
           </div>
         </nav>
         <main className="container">
           {children}
         </main>
+        <footer style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          <Link href="/terms" style={{ color: 'var(--text-secondary)' }}>Terms of Service</Link>
+          <span style={{ margin: '0 0.5rem' }}>·</span>
+          <span>Not affiliated with USBX or Untitled Sandbox.</span>
+        </footer>
       </body>
     </html>
   );

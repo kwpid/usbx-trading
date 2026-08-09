@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import BadgeIcon from './BadgeIcon';
+import type { InlineBadgeInfo } from '@/lib/inlineBadge';
 
 export type PlayerResult = {
   id: number;
@@ -9,6 +11,7 @@ export type PlayerResult = {
   rank?: number | null;
   totalValue?: number | null;
   totalRap?: number | null;
+  inlineBadge?: InlineBadgeInfo | null;
 };
 
 function formatNumber(n: number) {
@@ -36,8 +39,9 @@ export default function PlayerResultCard({ player, onClick }: { player: PlayerRe
         outline: isTop3 ? '1px solid var(--accent-color)' : undefined,
       }}
     >
-      <div style={{ padding: '0.6rem 0.75rem', fontWeight: 700, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '1px solid var(--border-color)' }}>
-        {player.username}
+      <div style={{ padding: '0.6rem 0.75rem', fontWeight: 700, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.username}</span>
+        {player.inlineBadge && <BadgeIcon badge={player.inlineBadge} size={14} />}
       </div>
 
       <div style={{ height: '160px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>

@@ -21,14 +21,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-async function isAdminRequest(request: NextRequest): Promise<boolean> {
+async function getRequestRole(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return false;
+  if (!token) return null;
 
   try {
     const { payload } = await jwtVerify(token, encodedKey, { algorithms: ['HS256'] });
     const usbxUserId = (payload as { usbxUserId?: number }).usbxUserId;
-    if (!usbxUserId) return false;
+    if (!usbxUserId) return null;
 
     const { data } = await supabase
       .from('profiles')
@@ -36,10 +36,19 @@ async function isAdminRequest(request: NextRequest): Promise<boolean> {
       .eq('usbx_user_id', usbxUserId)
       .maybeSingle();
 
-    return data?.role === 'admin';
+    return data?.role ?? null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+async function isAdminRequest(request: NextRequest): Promise<boolean> {
+  return (await getRequestRole(request)) === 'admin';
+}
+
+async function isEditorRequest(request: NextRequest): Promise<boolean> {
+  const role = await getRequestRole(request);
+  return role === 'admin' || role === 'mod';
 }
 
 // Pulls a random tracked player's avatar to use as the faded background
@@ -139,6 +148,21 @@ export async function proxy(request: NextRequest) {
   // for a random visitor beyond seeing the verification UI itself.
   if (pathname.startsWith('/account')) {
     return NextResponse.next();
+  }
+
+  // Admin dashboard and item-value editing are gated here (not just in the
+  // page components) so a non-admin/editor never even gets the page's HTML
+  // — the check runs before anything renders, instead of relying on every
+  // route under these paths to remember to call requireAdmin/requireEditor
+  // itself.
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  } else if (/^\/items\/[^/]+\/edit(\/|$)/.test(pathname)) {
+    if (!(await isEditorRequest(request))) {
+      return NextResponse.redirect(new URL(pathname.replace(/\/edit(\/|$)/, ''), request.url));
+    }
   }
 
   let maintenanceOn = false;

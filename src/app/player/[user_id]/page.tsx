@@ -9,7 +9,9 @@ import PlayerChart from "./PlayerChart";
 import RecordSnapshot from "./RecordSnapshot";
 import AwardBadges from "./AwardBadges";
 import ProfileInventoryClient, { InventoryItem } from "./ProfileInventoryClient";
+import WishlistSection, { WishlistItem } from "./WishlistSection";
 import BadgeIcon from "@/app/components/BadgeIcon";
+import { getInlineBadge } from "@/lib/inlineBadge";
 import { BADGES_BY_ID } from "@/lib/badges";
 import { SnapshotItem } from "@/lib/snapshot";
 
@@ -131,6 +133,10 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   const session = await getSession();
   const isOwnProfile = session?.usbxUserId === Number(userId);
 
+  // Single highest-priority badge (developer > value_mod > verified) shown
+  // next to the username — never more than one at a time.
+  const inlineBadge = await getInlineBadge(userId);
+
   // Prefer full-body avatar render
   const avatarUrl = resolveUsbxAssetUrl(summary.user.profile.avatarUrl || summary.user.profile.headshotUrl);
   const usbxProfileUrl = `https://beta.untitled-sandbox.com/user/profile/${userId}`;
@@ -202,6 +208,34 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
     .map((row) => ({ def: BADGES_BY_ID.get(row.badge_id), awardedAt: row.awarded_at }))
     .filter((b): b is { def: NonNullable<typeof b.def>; awardedAt: string } => Boolean(b.def));
 
+  // Wishlist — up to 6 items the player wants, shown below the badges
+  // section. Joined against items here rather than trusting stale data on
+  // the wishlist row itself, same DB-driven approach as everything else.
+  const { data: wishlistRows } = await supabase
+    .from('player_wishlist')
+    .select('item_id')
+    .eq('usbx_user_id', userId)
+    .order('added_at', { ascending: true });
+  const wishlistItemIds = (wishlistRows || []).map((r) => r.item_id);
+  let wishlistItems: WishlistItem[] = [];
+  if (wishlistItemIds.length > 0) {
+    const { data: wishlistItemRows } = await supabase
+      .from('items')
+      .select('id, name, item_image_url, rap, value, available_owners')
+      .in('id', wishlistItemIds);
+    const byId = new Map((wishlistItemRows || []).map((i) => [i.id, i]));
+    wishlistItems = wishlistItemIds.map((id) => byId.get(id)).filter((i): i is NonNullable<typeof i> => Boolean(i));
+  }
+
+  // NFT ("Not For Trade") markers this player has set on their own items —
+  // persisted separately from item_owners since that table gets wiped and
+  // rebuilt on every ownership sync.
+  const { data: nftRows } = await supabase
+    .from('player_nft_items')
+    .select('item_id')
+    .eq('usbx_user_id', userId);
+  const nftItemIds = (nftRows || []).map((r) => r.item_id);
+
   return (
     <div className="container" style={{ padding: '0', maxWidth: '1200px' }}>
       
@@ -227,6 +261,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
             {summary.user.username}
+            {inlineBadge && <BadgeIcon badge={inlineBadge} size={22} />}
             <a href={usbxProfileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-secondary)', display: 'flex' }}>
               <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
             </a>
@@ -298,9 +333,17 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
           </div>
         )}
 
+        {/* Wishlist */}
+        <WishlistSection items={wishlistItems} isOwnProfile={isOwnProfile} />
+
         {/* Inventory */}
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Limiteds</h2>
-        <ProfileInventoryClient items={clientCollectibles} inventoryIsPrivate={inventoryIsPrivate} />
+        <ProfileInventoryClient
+          items={clientCollectibles}
+          inventoryIsPrivate={inventoryIsPrivate}
+          nftItemIds={nftItemIds}
+          isOwnProfile={isOwnProfile}
+        />
       </div>
     </div>
   );

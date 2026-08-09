@@ -18,6 +18,10 @@ export default function VerificationPanel() {
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Hidden honeypot field — real visitors never see or fill this (it's
+  // visually hidden, not just off-screen for a screen reader). A bot that
+  // blindly fills every input in the form fills this too, marking it spam.
+  const [honeypot, setHoneypot] = useState('');
 
   const handleCopy = async () => {
     if (!pending) return;
@@ -60,7 +64,7 @@ export default function VerificationPanel() {
     e.preventDefault();
     setIsBusy(true);
     setError(null);
-    const result = await startVerification(profileUrl);
+    const result = await startVerification(profileUrl, honeypot);
     setIsBusy(false);
     if (result.error) {
       setError(result.error);
@@ -146,6 +150,22 @@ export default function VerificationPanel() {
           />
         </div>
 
+        {/* Honeypot — hidden from real users via off-screen styling (not
+            display:none, which some bots skip when filling forms), never
+            reachable by tab/keyboard either. */}
+        <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }} aria-hidden="true">
+          <label htmlFor="website">Website</label>
+          <input
+            id="website"
+            name="website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+          />
+        </div>
+
         {error && (
           <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', color: 'var(--danger-color)', borderRadius: '6px' }}>
             {error}
@@ -155,6 +175,10 @@ export default function VerificationPanel() {
         <button type="submit" className="btn btn-primary" disabled={isBusy}>
           {isBusy ? 'Looking up...' : 'Verify'}
         </button>
+
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.75rem' }}>
+          By verifying, you agree to our <a href="/terms" style={{ color: 'var(--accent-color)' }}>Terms of Service</a>.
+        </p>
       </form>
     </div>
   );
