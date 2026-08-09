@@ -1,8 +1,13 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import RarityBadge from '@/app/components/RarityBadge';
 
 export const revalidate = 30;
+
+// Temporarily disabled — nav link removed too. Delete this redirect (and
+// restore the nav link in layout.tsx) to bring the page back.
+const DEALS_PAGE_DISABLED = true;
 
 function formatNumber(num: number | null | undefined) {
   if (num === null || num === undefined) return '-';
@@ -52,6 +57,8 @@ type DealRow = {
 };
 
 export default async function DealsPage(props: { searchParams: Promise<{ sort?: string }> }) {
+  if (DEALS_PAGE_DISABLED) redirect('/');
+
   const searchParams = await props.searchParams;
   const sortMode = searchParams.sort === 'best' ? 'best' : 'newest';
 

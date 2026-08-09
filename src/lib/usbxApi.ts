@@ -356,7 +356,9 @@ export async function searchSite(query: string): Promise<UsbxSearchResult[]> {
 // up the Cloudflare Worker proxy automatically when configured.
 export async function fetchPublicEvents(params: { eventTypes: string[]; limit?: number }): Promise<any[]> {
   const qs = new URLSearchParams();
-  qs.set('eventType', params.eventTypes.join(','));
+  // USBX's API wants one `eventType` param per type, not a single
+  // comma-joined value — the joined form 422s outright.
+  for (const type of params.eventTypes) qs.append('eventType', type);
   qs.set('limit', String(params.limit ?? 50));
   const json = await usbxGetRaw(`/api/public-index/events?${qs.toString()}`);
   return json.data?.items ?? [];

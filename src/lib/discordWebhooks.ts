@@ -1,13 +1,8 @@
-const RAP_WEBHOOK_URL =
-  process.env.DISCORD_RAP_WEBHOOK_URL ??
-  'https://discord.com/api/webhooks/1534283249608687667/bVFoQjyNRhidC2ItqILB3Wibj3Se4rQn-HNbdBwrLd8nQ9pMv6dTLFrOGlag24XkzaeY';
-
-const SALES_WEBHOOK_URL =
-  process.env.DISCORD_SALES_WEBHOOK_URL ??
-  'https://discord.com/api/webhooks/1534283311147651278/K6m3vHVyAksZMveEU7daOE4388_iJ94oPPdjKsWsFEcFa-3D45lJq7V08CwUPoJ5rU0z';
-
-// No hardcoded fallback — set DISCORD_DEALS_WEBHOOK_URL when a channel exists
-// for it. sendDealWebhook silently no-ops until then.
+// No hardcoded fallbacks — these previously baked real webhook URLs into
+// the repo, which leaks them to anyone who can read the source. Set the env
+// vars in Vercel; each sender silently no-ops until its var is set.
+const RAP_WEBHOOK_URL = process.env.DISCORD_RAP_WEBHOOK_URL;
+const SALES_WEBHOOK_URL = process.env.DISCORD_SALES_WEBHOOK_URL;
 const DEALS_WEBHOOK_URL = process.env.DISCORD_DEALS_WEBHOOK_URL;
 
 async function postEmbed(url: string, embed: Record<string, unknown>) {
@@ -31,6 +26,8 @@ export async function sendRapUpdateWebhook(opts: {
   salePrice?: number | null;
   totalSales?: number | null;
 }) {
+  if (!RAP_WEBHOOK_URL) return;
+
   const diff = opts.newRap - opts.oldRap;
   const pctChange = opts.oldRap > 0 ? ((diff / opts.oldRap) * 100).toFixed(1) : '—';
   const direction = diff >= 0 ? '📈' : '📉';
@@ -68,6 +65,8 @@ export async function sendRecentSaleWebhook(opts: {
   sellerId?: number | null;
   saleType?: string;
 }) {
+  if (!SALES_WEBHOOK_URL) return;
+
   const discount =
     opts.rap != null && opts.rap > 0
       ? (((opts.rap - opts.price) / opts.rap) * 100).toFixed(1)

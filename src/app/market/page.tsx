@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import RarityBadge from "@/app/components/RarityBadge";
 import MarketControls from "./MarketControls";
+import { escapePostgrestValue } from "@/lib/searchSanitize";
 
 export const revalidate = 60;
 
@@ -43,7 +44,8 @@ export default async function MarketPage(props: { searchParams: Promise<{ page?:
       dbQuery = dbQuery.eq('is_limited', true);
     }
     if (query) {
-      dbQuery = dbQuery.or(`name.ilike.%${query}%,acronym.ilike.%${query}%`);
+      const esc = escapePostgrestValue(query);
+      dbQuery = dbQuery.or(`name.ilike."%${esc}%",acronym.ilike."%${esc}%"`);
     }
 
     const { data, error, count } = await dbQuery.range((currentPage - 1) * pageSize, currentPage * pageSize - 1);

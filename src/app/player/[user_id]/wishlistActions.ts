@@ -2,6 +2,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { getSession } from '@/lib/session';
+import { escapePostgrestValue } from '@/lib/searchSanitize';
 import { revalidatePath } from 'next/cache';
 
 const MAX_WISHLIST_ITEMS = 6;
@@ -64,11 +65,12 @@ export async function searchWishlistCandidates(query: string) {
   const q = query.trim();
   if (!q) return getTopWishlistCandidates();
 
+  const esc = escapePostgrestValue(q);
   const { data, error } = await supabase
     .from('items')
     .select(WISHLIST_ITEM_FIELDS)
     .eq('is_limited', true)
-    .or(`name.ilike.%${q}%,acronym.ilike.%${q}%`)
+    .or(`name.ilike."%${esc}%",acronym.ilike."%${esc}%"`)
     .order('value', { ascending: false })
     .limit(15);
 

@@ -4,9 +4,11 @@ import { supabase } from '@/lib/supabase';
 import { getSession } from '@/lib/session';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { WILDCARD_TAGS, WildcardTag } from '@/lib/tradeAdWildcards';
+import { escapePostgrestValue } from '@/lib/searchSanitize';
 import { revalidatePath } from 'next/cache';
 
 const MAX_SLOTS = 6;
+const COOLDOWN_MINUTES = 30;
 const ITEM_FIELDS = 'id, name, item_image_url, rap, value, available_owners, price_best_resale, is_limited';
 
 export type RequestSlot = { type: 'item'; itemId: number } | { type: 'wildcard'; tag: WildcardTag };
@@ -64,7 +66,10 @@ export async function searchRequestCatalog(query: string) {
     .order('value', { ascending: false, nullsFirst: false })
     .limit(30);
 
-  if (q) builder = builder.or(`name.ilike.%${q}%,acronym.ilike.%${q}%`);
+  if (q) {
+    const esc = escapePostgrestValue(q);
+    builder = builder.or(`name.ilike."%${esc}%",acronym.ilike."%${esc}%"`);
+  }
 
   const { data, error } = await builder;
   if (error) {
@@ -83,6 +88,28 @@ export type CreateTradeAdInput = {
   requestCurrencyAmount: number | null;
 };
 
+// Minutes remaining before this player can post another trade ad, based on
+// their own most recent ad (any status) rather than an IP — the IP-based
+// rate limit below still guards against burst abuse, this is the per-person
+// "one ad every 30 minutes" pace limit.
+export async function getTradeAdCooldownRemaining(): Promise<number> {
+  const session = await getSession();
+  if (!session) return 0;
+
+  const { data: lastAd } = await supabase
+    .from('trade_ads')
+    .select('created_at')
+    .eq('creator_usbx_id', session.usbxUserId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!lastAd) return 0;
+  const elapsedMs = Date.now() - new Date(lastAd.created_at).getTime();
+  const remainingMs = COOLDOWN_MINUTES * 60_000 - elapsedMs;
+  return remainingMs > 0 ? Math.ceil(remainingMs / 60_000) : 0;
+}
+
 export async function createTradeAd(input: CreateTradeAdInput) {
   const auth = await requireVerifiedSession();
   if ('error' in auth) return { error: auth.error };
@@ -90,6 +117,11 @@ export async function createTradeAd(input: CreateTradeAdInput) {
   const ip = await getClientIp();
   if (!(await checkRateLimit(`trade-ad-create:${ip}`, 300, 5))) {
     return { error: 'Too many trade ads posted recently. Please wait a few minutes.' };
+  }
+
+  const cooldownRemaining = await getTradeAdCooldownRemaining();
+  if (cooldownRemaining > 0) {
+    return { error: `You can post another trade ad in ${cooldownRemaining} minute${cooldownRemaining === 1 ? '' : 's'}.` };
   }
 
   if (input.offerItemIds.length === 0 && !input.offerCurrencyAmount) {
@@ -160,23 +192,9 @@ export async function closeTradeAd(adId: number) {
 
 const PAGE_SIZE = 20;
 
-export async function getTradeAds(page: number) {
-  const offset = (page - 1) * PAGE_SIZE;
-
-  const { data: ads, count, error } = await supabase
-    .from('trade_ads')
-    .select('*', { count: 'exact' })
-    .eq('status', 'open')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
-
-  if (error || !ads) {
-    console.error('getTradeAds error:', error?.message);
-    return { ads: [], total: 0, itemsById: new Map(), profilesById: new Map() };
-  }
-
-  // Resolve every referenced item and creator profile in one shot each,
-  // rather than per-card, so a page of 20 ads costs 2 extra queries total.
+// Resolve every item and creator profile referenced across a batch of ads
+// in one query each, rather than per-card.
+async function resolveTradeAdRefs(ads: { offer_item_ids: number[]; request_slots: RequestSlot[]; creator_usbx_id: number }[]) {
   const itemIds = new Set<number>();
   const userIds = new Set<number>();
   for (const ad of ads) {
@@ -194,8 +212,47 @@ export async function getTradeAds(page: number) {
     supabase.from('profiles').select('usbx_user_id, usbx_username, usbx_avatar_url').in('usbx_user_id', userIds.size > 0 ? [...userIds] : [-1]),
   ]);
 
-  const itemsById = new Map((items || []).map((i) => [i.id, i]));
-  const profilesById = new Map((profiles || []).map((p) => [p.usbx_user_id, p]));
+  return {
+    itemsById: new Map((items || []).map((i) => [i.id, i])),
+    profilesById: new Map((profiles || []).map((p) => [p.usbx_user_id, p])),
+  };
+}
 
+export async function getTradeAds(page: number) {
+  const offset = (page - 1) * PAGE_SIZE;
+
+  const { data: ads, count, error } = await supabase
+    .from('trade_ads')
+    .select('*', { count: 'exact' })
+    .eq('status', 'open')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
+
+  if (error || !ads) {
+    console.error('getTradeAds error:', error?.message);
+    return { ads: [], total: 0, itemsById: new Map(), profilesById: new Map() };
+  }
+
+  const { itemsById, profilesById } = await resolveTradeAdRefs(ads);
   return { ads, total: count ?? 0, itemsById, profilesById };
+}
+
+// Every ad a given player has posted (both open and closed) — used on their
+// /playertrades/[userid] page. Counts per player are small enough that we
+// fetch everything and let the page filter/paginate client-side instead of
+// pushing item-name search down into a jsonb query.
+export async function getPlayerTradeAds(usbxUserId: number) {
+  const { data: ads, error } = await supabase
+    .from('trade_ads')
+    .select('*')
+    .eq('creator_usbx_id', usbxUserId)
+    .order('created_at', { ascending: false });
+
+  if (error || !ads) {
+    console.error('getPlayerTradeAds error:', error?.message);
+    return { ads: [], itemsById: new Map() };
+  }
+
+  const { itemsById } = await resolveTradeAdRefs(ads);
+  return { ads, itemsById };
 }

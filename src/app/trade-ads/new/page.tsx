@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+import { getTradeAdCooldownRemaining } from '../actions';
 import TradeAdBuilder from '../TradeAdBuilder';
 
 export default async function NewTradeAdPage() {
@@ -29,10 +30,12 @@ export default async function NewTradeAdPage() {
     );
   }
 
+  const cooldownRemaining = await getTradeAdCooldownRemaining();
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
       <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>Post a Trade Ad</h1>
-      <TradeAdBuilder />
+      <TradeAdBuilder initialCooldownMinutes={cooldownRemaining} />
     </div>
   );
 }

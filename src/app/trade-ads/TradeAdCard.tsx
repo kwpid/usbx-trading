@@ -20,6 +20,7 @@ export type TradeAdItem = {
 export type TradeAdData = {
   id: number;
   creator_usbx_id: number;
+  status?: 'open' | 'closed';
   offer_item_ids: number[];
   offer_currency_type: 'token' | 'scrip' | null;
   offer_currency_amount: number | null;

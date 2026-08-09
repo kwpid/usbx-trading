@@ -141,8 +141,9 @@ function PickerItemCard({
   );
 }
 
-export default function TradeAdBuilder() {
+export default function TradeAdBuilder({ initialCooldownMinutes = 0 }: { initialCooldownMinutes?: number }) {
   const router = useRouter();
+  const onCooldown = initialCooldownMinutes > 0;
   const [activeSide, setActiveSide] = useState<'offer' | 'request'>('offer');
 
   const [offerItems, setOfferItems] = useState<Item[]>([]);
@@ -357,6 +358,12 @@ export default function TradeAdBuilder() {
         )}
       </div>
 
+      {onCooldown && (
+        <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(226, 185, 85, 0.1)', border: '1px solid var(--rare-color)', color: 'var(--rare-color)', borderRadius: '6px' }}>
+          You can only post one trade ad every 30 minutes — you can post again in {initialCooldownMinutes} minute{initialCooldownMinutes === 1 ? '' : 's'}.
+        </div>
+      )}
+
       {error && (
         <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', color: 'var(--danger-color)', borderRadius: '6px' }}>
           {error}
@@ -366,11 +373,11 @@ export default function TradeAdBuilder() {
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={isSaving}
+        disabled={isSaving || onCooldown}
         className="btn btn-primary"
         style={{ marginTop: '1.5rem', width: '100%', padding: '0.85rem', fontSize: '1rem' }}
       >
-        {isSaving ? 'Posting...' : 'Post Trade Ad'}
+        {onCooldown ? `Wait ${initialCooldownMinutes}m to post again` : isSaving ? 'Posting...' : 'Post Trade Ad'}
       </button>
     </div>
   );

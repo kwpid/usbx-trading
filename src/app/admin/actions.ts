@@ -4,10 +4,6 @@ import { supabase } from '@/lib/supabase';
 import { requireAdmin, requireEditor } from '@/lib/roles';
 import { fetchItemFullDetails, extractUsbxItemId } from '@/lib/usbxApi';
 import { revalidatePath } from 'next/cache';
-export async function fetchItemFromApiAction(itemId: string) {
-  // Placeholder for future API integration
-  return { error: 'API integration coming soon. Please use custom upload for testing.', success: false };
-}
 
 // Site-wide maintenance mode — gated in proxy.ts for every non-admin visitor,
 // toggled here so it doesn't require a redeploy to flip on/off.
@@ -102,36 +98,6 @@ export async function revokeBadge(usbxUserId: number, badgeId: string) {
   revalidatePath(`/player/${usbxUserId}`);
   revalidatePath('/badges');
   return { success: true };
-}
-
-export async function saveItemAction(item: any) {
-  if (!(await requireAdmin())) {
-    return { error: 'Admins only.', success: false };
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('items')
-      .insert([item])
-      .select();
-
-    if (error) {
-      console.error("Supabase error:", error);
-      return { error: `Database error: ${error.message}. Did you create the table?`, success: false };
-    }
-
-    revalidatePath('/');
-    revalidatePath('/market');
-
-    return { 
-      success: true, 
-      message: `Successfully saved ${item.name}!`,
-      item: data[0]
-    };
-  } catch (err: any) {
-    console.error('Save error:', err);
-    return { error: err.message || 'An unexpected error occurred during saving', success: false };
-  }
 }
 
 // Re-pulls RAP/Value/Price/owners from USBX for an item that was originally
@@ -370,10 +336,10 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
       });
     }
     
-    if (embeds.length > 0) {
+    if (embeds.length > 0 && process.env.DISCORD_VALUE_CHANGES_WEBHOOK_URL) {
       for (const embed of embeds) {
         try {
-          await fetch('https://discord.com/api/webhooks/1534261990703497226/Fk8M35V7SOk20-79Z5ebLbu7EaK-0RDS4ZslISyDdjM11fSLcwYXgnfNPFipRlfKzDa5', {
+          await fetch(process.env.DISCORD_VALUE_CHANGES_WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ embeds: [embed] }),

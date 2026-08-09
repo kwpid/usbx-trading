@@ -268,6 +268,9 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
           </h1>
           <div style={{ color: 'var(--accent-color)', fontSize: '1rem' }}>USBX Player Profile</div>
         </div>
+        <Link href={`/playertrades/${userId}`} className="btn btn-primary" style={{ borderRadius: '999px', padding: '0.5rem 1.1rem', fontSize: '0.85rem', textDecoration: 'none' }}>
+          Trade Ads
+        </Link>
       </div>
 
       {/* Subtle Background Card for Profile Content */}
