@@ -17,7 +17,9 @@ const SORT_COLUMNS: Record<string, string> = {
   value: 'value',
   rap: 'rap',
   price_best_resale: 'price_best_resale',
-  owners: 'available_owners',
+  copies: 'copies_sold',
+  // Legacy sort param — older links used ?sort=owners when this meant rarity.
+  owners: 'copies_sold',
 };
 
 export default async function MarketPage(props: { searchParams: Promise<{ page?: string; all?: string; q?: string; sort?: string }> }) {
@@ -188,8 +190,8 @@ export default async function MarketPage(props: { searchParams: Promise<{ page?:
                 <span style={{ fontWeight: '500', color: 'var(--rare-color)' }}>{formatNumber(item.value)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Available</span>
-                <span style={{ fontWeight: '500' }}>{item.available_owners !== null ? item.available_owners : '-'}</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Copies Sold</span>
+                <span style={{ fontWeight: '500' }}>{item.copies_sold !== null && item.copies_sold !== undefined ? item.copies_sold : '-'}</span>
               </div>
             </div>
           </Link>

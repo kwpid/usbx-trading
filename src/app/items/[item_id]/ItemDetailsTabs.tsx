@@ -65,8 +65,8 @@ export default function ItemDetailsTabs({
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Unique Owners</div>
-                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.available_owners !== null ? formatNumber(item.available_owners) : '-'}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Copies Sold</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.copies_sold !== null && item.copies_sold !== undefined ? formatNumber(item.copies_sold) : '-'}</div>
                 </div>
               </div>
               

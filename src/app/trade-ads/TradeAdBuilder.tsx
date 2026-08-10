@@ -134,8 +134,8 @@ function PickerItemCard({
           <span style={{ fontWeight: '500', color: 'var(--rare-color)' }}>{formatNumber(item.value)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Available</span>
-          <span style={{ fontWeight: '500' }}>{item.available_owners !== null ? item.available_owners : '-'}</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Copies Sold</span>
+          <span style={{ fontWeight: '500' }}>{item.copies_sold !== null && item.copies_sold !== undefined ? item.copies_sold : '-'}</span>
         </div>
       </div>
     </button>
