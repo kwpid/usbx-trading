@@ -14,6 +14,7 @@ type Item = {
   rap: number | null;
   value: number | null;
   available_owners: number | null;
+  copies_sold: number | null;
   price_best_resale?: number | null;
   is_limited?: boolean | null;
 };
@@ -56,7 +57,7 @@ function EmptySlot() {
 function ItemSlotContent({ item }: { item: Item }) {
   return (
     <div title={item.name} style={{ width: '100%', height: '100%', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-      <RarityBadge owners={item.available_owners} />
+      <RarityBadge copies={item.copies_sold} />
       {item.item_image_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.item_image_url} alt={item.name} style={{ maxWidth: '75%', maxHeight: '75%', objectFit: 'contain' }} />
@@ -110,7 +111,7 @@ function PickerItemCard({
             LIMITED
           </div>
         )}
-        <RarityBadge owners={item.available_owners} />
+        <RarityBadge copies={item.copies_sold} />
         {item.item_image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={item.item_image_url} alt={item.name} style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />

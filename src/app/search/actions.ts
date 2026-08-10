@@ -14,7 +14,7 @@ export async function searchLimitedsAction(query: string) {
   const esc = escapePostgrestValue(q);
   const { data, error } = await supabase
     .from('items')
-    .select('id, name, item_image_url, rap, value, available_owners')
+    .select('id, name, item_image_url, rap, value, available_owners, copies_sold')
     .or(`name.ilike."%${esc}%",acronym.ilike."%${esc}%"`)
     .order('value', { ascending: false })
     .limit(15);

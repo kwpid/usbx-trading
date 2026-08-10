@@ -170,7 +170,7 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
   const topHoards = [...hoarders].sort((a, b) => b.count - a.count).slice(0, 5);
 
   // Derived variables
-  const rarity = getRarity(item.available_owners);
+  const rarity = getRarity(totalCopies);
   const acronym = item.acronym || '';
   const typeText = (item as any).visual_category || 'Item';
   const trend = computeTrend(recentSales);

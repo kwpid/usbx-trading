@@ -12,6 +12,7 @@ export type WishlistItem = {
   rap: number | null;
   value: number | null;
   available_owners: number | null;
+  copies_sold: number | null;
 };
 
 const MAX_WISHLIST_ITEMS = 6;
@@ -111,7 +112,7 @@ export default function WishlistSection({ items, isOwnProfile }: { items: Wishli
               </div>
 
               <Link href={`/items/${item.id}`} style={{ position: 'relative', height: '140px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <RarityBadge owners={item.available_owners} />
+                <RarityBadge copies={item.copies_sold} />
                 {item.item_image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={item.item_image_url} alt={item.name} style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
@@ -179,7 +180,7 @@ export default function WishlistSection({ items, isOwnProfile }: { items: Wishli
                           {item.name}
                         </div>
                         <div style={{ position: 'relative', height: '90px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <RarityBadge owners={item.available_owners} />
+                          <RarityBadge copies={item.copies_sold} />
                           {item.item_image_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={item.item_image_url} alt={item.name} style={{ maxWidth: '75%', maxHeight: '75%', objectFit: 'contain' }} />

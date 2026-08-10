@@ -18,6 +18,7 @@ export type InventoryItem = {
   rap: number;
   value: number;
   availableOwners: number | null | undefined;
+  copiesSold: number | null | undefined;
   copies: InventoryCopy[];
 };
 
@@ -376,7 +377,7 @@ export default function ProfileInventoryClient({ items, inventoryIsPrivate, nftI
                 </Link>
 
                 <Link href={`/items/${item.storeItemId}`} style={{ position: 'relative', height: '140px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <RarityBadge owners={item.availableOwners} />
+                  <RarityBadge copies={item.copiesSold} />
                   {nftSet.has(item.storeItemId) && (
                     <div
                       title="Not For Trade"

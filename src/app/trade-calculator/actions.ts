@@ -10,7 +10,7 @@ export async function searchTradeItems(query: string) {
   const esc = escapePostgrestValue(trimmed);
   const { data, error } = await supabase
     .from('items')
-    .select('id, name, item_image_url, rap, value, available_owners, is_limited')
+    .select('id, name, item_image_url, rap, value, available_owners, copies_sold, is_limited')
     .or(`name.ilike."%${esc}%",acronym.ilike."%${esc}%"`)
     .order('value', { ascending: false, nullsFirst: false })
     .limit(30);

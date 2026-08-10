@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
 
 const MAX_SLOTS = 6;
 const COOLDOWN_MINUTES = 30;
-const ITEM_FIELDS = 'id, name, item_image_url, rap, value, available_owners, price_best_resale, is_limited';
+const ITEM_FIELDS = 'id, name, item_image_url, rap, value, available_owners, copies_sold, price_best_resale, is_limited';
 
 export type RequestSlot = { type: 'item'; itemId: number } | { type: 'wildcard'; tag: WildcardTag };
 

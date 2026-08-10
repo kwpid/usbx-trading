@@ -188,7 +188,7 @@ export default async function Home() {
                     </div>
                   )}
 
-                  <RarityBadge owners={item.available_owners} />
+                  <RarityBadge copies={item.copies_sold} />
 
                   {item.item_image_url ? (
                     <Image src={item.item_image_url} alt={item.name} fill style={{ objectFit: 'contain', padding: '1rem' }} />

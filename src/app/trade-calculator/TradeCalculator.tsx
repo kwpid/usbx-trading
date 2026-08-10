@@ -12,6 +12,7 @@ type TradeItem = {
   rap: number | null;
   value: number | null;
   available_owners?: number | null;
+  copies_sold?: number | null;
   is_limited?: boolean | null;
 };
 
@@ -346,7 +347,7 @@ export default function TradeCalculator({
                       LIMITED
                     </div>
                   )}
-                  <RarityBadge owners={item.available_owners} />
+                  <RarityBadge copies={item.copies_sold} />
                   {item.item_image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.item_image_url} alt={item.name} style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />

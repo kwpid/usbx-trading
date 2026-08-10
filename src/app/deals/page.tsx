@@ -51,6 +51,7 @@ type DealRow = {
   value: number | null;
   discountPct: number | null;
   availableOwners: number | null;
+  copiesSold: number | null;
   storeName: string | null;
   listedByUsername: string | null;
   listedAt: string | null;
@@ -75,11 +76,11 @@ export default async function DealsPage(props: { searchParams: Promise<{ sort?: 
     if (listingsErr) throw listingsErr;
 
     const listingIds = (listingRows || []).map((l) => l.id);
-    let dbById = new Map<number, { rap: number | null; value: number | null; available_owners: number | null }>();
+    let dbById = new Map<number, { rap: number | null; value: number | null; available_owners: number | null; copies_sold: number | null }>();
     if (listingIds.length > 0) {
       const { data } = await supabase
         .from('items')
-        .select('id, rap, value, available_owners')
+        .select('id, rap, value, available_owners, copies_sold')
         .in('id', listingIds);
       dbById = new Map((data || []).map((i) => [i.id, i]));
     }
@@ -98,6 +99,7 @@ export default async function DealsPage(props: { searchParams: Promise<{ sort?: 
         value: db?.value ?? null,
         discountPct,
         availableOwners: db?.available_owners ?? null,
+        copiesSold: db?.copies_sold ?? null,
         storeName: listing.store_name,
         listedByUsername: listing.listed_by_username,
         listedAt: listing.listed_at,
@@ -274,7 +276,7 @@ export default async function DealsPage(props: { searchParams: Promise<{ sort?: 
             return (
               <Link key={deal.id} href={`/items/${deal.id}`} className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ position: 'relative', height: '140px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <RarityBadge owners={deal.availableOwners} />
+                  <RarityBadge copies={deal.copiesSold} />
                   {deal.discountPct != null && (
                     <div style={{
                       position: 'absolute', top: '0.5rem', right: '0.5rem',

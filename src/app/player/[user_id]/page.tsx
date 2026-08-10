@@ -111,7 +111,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   if (storeItemIds.length > 0) {
     const { data, error } = await supabase
       .from('items')
-      .select('id, name, rap, value, item_image_url, available_owners')
+      .select('id, name, rap, value, item_image_url, available_owners, copies_sold')
       .in('id', storeItemIds)
       .eq('is_limited', true);
     if (error) console.error('Failed to load owned item pricing:', error.message);
@@ -192,6 +192,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
         rap: dbItem.rap || 0,
         value: dbItem.value || 0,
         availableOwners: dbItem.available_owners,
+        copiesSold: dbItem.copies_sold,
         copies: [copy],
       });
     }
@@ -233,7 +234,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   if (wishlistItemIds.length > 0) {
     const { data: wishlistItemRows } = await supabase
       .from('items')
-      .select('id, name, item_image_url, rap, value, available_owners')
+      .select('id, name, item_image_url, rap, value, available_owners, copies_sold')
       .in('id', wishlistItemIds);
     const byId = new Map((wishlistItemRows || []).map((i) => [i.id, i]));
     wishlistItems = wishlistItemIds.map((id) => byId.get(id)).filter((i): i is NonNullable<typeof i> => Boolean(i));
@@ -263,7 +264,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
         totalValue={totalValue}
         collectibles={clientCollectibles.map((c) => ({
           name: c.name,
-          availableOwners: c.availableOwners,
+          copiesSold: c.copiesSold,
           copies: c.copies.map((copy) => ({ serialNumber: copy.serialNumber })),
         }))}
       />

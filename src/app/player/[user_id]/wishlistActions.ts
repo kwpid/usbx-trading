@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 
 const MAX_WISHLIST_ITEMS = 6;
 
-const WISHLIST_ITEM_FIELDS = 'id, name, item_image_url, rap, value, available_owners';
+const WISHLIST_ITEM_FIELDS = 'id, name, item_image_url, rap, value, available_owners, copies_sold';
 
 export async function addToWishlist(itemId: number) {
   const session = await getSession();

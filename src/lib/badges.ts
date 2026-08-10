@@ -21,7 +21,7 @@ export type BadgeCategory = 'Values' | 'Other' | 'Items' | 'Community';
 // evaluate eligibility.
 export type BadgeCollectible = {
   name: string;
-  availableOwners: number | null | undefined;
+  copiesSold: number | null | undefined;
   copies: { serialNumber: string }[];
 };
 
@@ -42,7 +42,7 @@ export type BadgeDef = {
 };
 
 function rareCount(ctx: BadgeContext): number {
-  return ctx.collectibles.filter((c) => getRarity(c.availableOwners) === 'rare').length;
+  return ctx.collectibles.filter((c) => getRarity(c.copiesSold) === 'rare').length;
 }
 
 function ownsFamily(ctx: BadgeContext, needle: string): boolean {

@@ -63,16 +63,16 @@ export async function GET(request: NextRequest) {
   // ── 2. Load our item catalog once for this batch ───────────────────────────
   const { data: allItems } = await supabase
     .from('items')
-    .select('id, name, rap, value, available_owners, item_image_url')
+    .select('id, name, rap, value, available_owners, copies_sold, item_image_url')
     .eq('is_limited', true);
 
   const itemPricingById = new Map<
     number,
-    { rap: number; value: number; name: string; availableOwners: number | null; imageUrl: string | null }
+    { rap: number; value: number; name: string; availableOwners: number | null; copiesSold: number | null; imageUrl: string | null }
   >(
     (allItems ?? []).map((i) => [
       i.id,
-      { rap: i.rap ?? 0, value: i.value ?? 0, name: i.name, availableOwners: i.available_owners, imageUrl: i.item_image_url },
+      { rap: i.rap ?? 0, value: i.value ?? 0, name: i.name, availableOwners: i.available_owners, copiesSold: i.copies_sold, imageUrl: i.item_image_url },
     ])
   );
 
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
         } else {
           collectiblesMap.set(storeItemId, {
             name: pricing.name || row.item.name,
-            availableOwners: pricing.availableOwners,
+            copiesSold: pricing.copiesSold,
             copies: [copy],
           });
         }
