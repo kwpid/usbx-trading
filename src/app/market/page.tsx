@@ -190,7 +190,7 @@ export default async function MarketPage(props: { searchParams: Promise<{ page?:
                 <span style={{ fontWeight: '500', color: 'var(--rare-color)' }}>{formatNumber(item.value)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Copies Sold</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Available</span>
                 <span style={{ fontWeight: '500' }}>{item.copies_sold !== null && item.copies_sold !== undefined ? item.copies_sold : '-'}</span>
               </div>
             </div>

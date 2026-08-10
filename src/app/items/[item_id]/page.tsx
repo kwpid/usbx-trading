@@ -261,7 +261,7 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
         </div>
         <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
            <div>
-             <div style={{ fontSize: '0.85rem', color: 'var(--rare-color)' }}>Copies Sold</div>
+             <div style={{ fontSize: '0.85rem', color: 'var(--rare-color)' }}>Available</div>
              <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{formatNumber(totalCopies)}</div>
            </div>
         </div>
