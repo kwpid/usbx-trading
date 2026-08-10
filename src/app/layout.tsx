@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import Link from "next/link";
 import SearchTrigger from "./components/SearchTrigger";
 import AdminNavLink from "./components/AdminNavLink";
+import AccountNavDropdown from "./components/AccountNavDropdown";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -61,10 +62,7 @@ export default function RootLayout({
               </div>
             </div>
             <SearchTrigger />
-            <Link href="/account" className="nav-icon-link">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <span>Account</span>
-            </Link>
+            <AccountNavDropdown />
             <AdminNavLink />
           </div>
         </nav>
