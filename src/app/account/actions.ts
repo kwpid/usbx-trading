@@ -11,18 +11,9 @@ import crypto from 'crypto';
 
 const USBX_PROFILE_URL_REGEX = /^https:\/\/beta\.untitled-sandbox\.com\/user\/profile\/(\d+)\/?$/;
 
-// Step 1: visitor submits their USBX profile URL. We fetch their real
-// profile summary (username/avatar/bio) via the API to confirm the account
-// exists and show them who they're about to verify as, then generate a
-// phrase to paste into their profile description. Checking the `bio` field
-// specifically (not wall comments or any other page content) means someone
-// else posting text on the profile can't fake a match — only the person who
-// can actually edit that profile's description can pass this.
-//
-// `honeypot` is a hidden form field real users never see or fill; a bot
-// that blindly fills every input in the form will populate it, so a
-// non-empty value is treated as spam and rejected without doing any work
-// (no USBX fetch, no pending-verification cookie).
+// Verification proves ownership by checking the profile's `bio` field
+// specifically — only the account holder can edit that, unlike wall
+// comments. `honeypot` is a hidden field only bots fill.
 export async function startVerification(profileUrl: string, honeypot?: string) {
   if (honeypot) {
     return { error: 'Verification failed. Please try again.' };
@@ -59,9 +50,6 @@ export async function startVerification(profileUrl: string, honeypot?: string) {
   };
 }
 
-// Step 2: visitor has (hopefully) pasted the phrase into their profile
-// description. Re-fetch it fresh, check for it, and if found log them in
-// (this doubles as both signup and login for returning players).
 export async function completeVerification() {
   const ip = await getClientIp();
   const allowed = await checkRateLimit(`verify-complete:${ip}`, 600, 10);
@@ -89,11 +77,8 @@ export async function completeVerification() {
   const username = summary.user.username || null;
   const avatarUrl = resolveUsbxAssetUrl(summary.user.profile.headshotUrl || summary.user.profile.avatarUrl);
 
-  // is_verified is only ever set true here, on a successful bio-code check.
-  // The same `profiles` row also gets upserted by the admin player-sync job
-  // (to cache username/avatar for the leaderboard) for players who never
-  // verified anything — that path never touches is_verified, so it can't
-  // accidentally flip someone into "verified" just by existing in that table.
+  // is_verified is only ever set true here — the leaderboard sync job also
+  // upserts this row but never touches is_verified.
   const { error: upsertError } = await supabase
     .from('profiles')
     .upsert(
@@ -111,10 +96,8 @@ export async function completeVerification() {
     return { error: upsertError.message };
   }
 
-  // Award the Verified badge once, the moment verification succeeds. There's
-  // no unique constraint on player_badges to lean on (same as the rest of
-  // the badge-awarding code), so check first rather than risk a duplicate
-  // row every time an already-verified account re-verifies.
+  // No unique constraint on player_badges, so check first to avoid a
+  // duplicate row on re-verification.
   const { data: existingBadge } = await supabase
     .from('player_badges')
     .select('badge_id')

@@ -209,7 +209,7 @@ export default function PlayerChart({ history }: Props) {
                 fillOpacity={0.08}
                 stroke="var(--border-color)"
                 strokeDasharray="4 4"
-                label={{ value: 'Archived Data', position: 'insideTopLeft', fill: 'var(--text-secondary)', fontStyle: 'italic', fontSize: 12 }}
+                label={{ value: 'Archived Data', position: 'insideTop', fill: 'var(--text-secondary)', fontStyle: 'italic', fontSize: 12 }}
               />
             )}
             <Area type="monotone" dataKey="RAP" stroke="var(--rare-color)" fillOpacity={1} fill="url(#colorRap)" strokeWidth={2} connectNulls={false} activeDot={{ r: 6, style: { cursor: 'pointer' } }} />

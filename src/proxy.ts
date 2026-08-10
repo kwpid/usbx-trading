@@ -3,15 +3,9 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import { createClient } from '@supabase/supabase-js';
 
-// Site-wide maintenance gate. Runs on every page request (see matcher below)
-// and, when maintenance_mode is on, blocks everyone except a signed-in admin
-// behind a static maintenance screen — no page content, no data, nothing
-// rendered. Toggled from Admin -> Sync (MaintenanceTogglePanel), no redeploy
-// needed.
-//
-// This is Proxy (formerly "middleware"), which in this Next.js version runs
-// on the Node.js runtime by default, so plain Node-compatible packages
-// (jose, supabase-js) work here same as anywhere else server-side.
+// This is Proxy (formerly "middleware" pre-Next 16) — runs on the Node.js
+// runtime by default, so jose/supabase-js work here directly. Also the
+// site-wide maintenance gate, toggled from Admin -> Sync.
 
 const SESSION_COOKIE = 'usbx_session';
 const encodedKey = new TextEncoder().encode(process.env.SESSION_SECRET);
@@ -51,8 +45,6 @@ async function isEditorRequest(request: NextRequest): Promise<boolean> {
   return role === 'admin' || role === 'mod';
 }
 
-// Pulls a random tracked player's avatar to use as the faded background
-// silhouette, so the maintenance page isn't a generic stock icon.
 async function getRandomAvatarUrl(): Promise<string | null> {
   try {
     const { data } = await supabase
@@ -143,18 +135,11 @@ function buildMaintenanceHtml(avatarUrl: string | null): string {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always reachable so an admin can (re-)establish a session even while
-  // maintenance is on — this route has no destructive/sensitive side effects
-  // for a random visitor beyond seeing the verification UI itself.
+  // Always reachable so an admin can re-establish a session during maintenance.
   if (pathname.startsWith('/account')) {
     return NextResponse.next();
   }
 
-  // Admin dashboard and item-value editing are gated here (not just in the
-  // page components) so a non-admin/editor never even gets the page's HTML
-  // — the check runs before anything renders, instead of relying on every
-  // route under these paths to remember to call requireAdmin/requireEditor
-  // itself.
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
     if (!(await isAdminRequest(request))) {
       return NextResponse.redirect(new URL('/', request.url));
@@ -174,8 +159,7 @@ export async function proxy(request: NextRequest) {
       .maybeSingle();
     maintenanceOn = Boolean(data?.maintenance_mode);
   } catch {
-    // If the settings check itself fails, fail open rather than locking
-    // everyone (including admins) out of a working site over a DB hiccup.
+    // Fail open — a DB hiccup shouldn't lock everyone out.
     maintenanceOn = false;
   }
 

@@ -6,10 +6,6 @@ import { fetchItemFullDetails, extractUsbxItemId } from '@/lib/usbxApi';
 import { sendRapUpdateWebhook, sendRecentSaleWebhook } from '@/lib/discordWebhooks';
 import { revalidatePath } from 'next/cache';
 
-// Fires a dummy embed through the real sender functions so an admin can
-// confirm DISCORD_RAP_WEBHOOK_URL / DISCORD_SALES_WEBHOOK_URL are actually
-// set and accepted by Discord, without waiting for a real RAP change or
-// sale to happen to find out.
 export async function testRapWebhook() {
   if (!(await requireAdmin())) return { error: 'Admins only.', success: false };
 
@@ -46,8 +42,6 @@ export async function testSalesWebhook() {
   return result.sent ? { success: true } : { error: result.error || 'Failed to send.', success: false };
 }
 
-// Site-wide maintenance mode — gated in proxy.ts for every non-admin visitor,
-// toggled here so it doesn't require a redeploy to flip on/off.
 export async function setMaintenanceMode(enabled: boolean) {
   if (!(await requireAdmin())) {
     return { error: 'Admins only.', success: false };
@@ -66,9 +60,6 @@ export async function setMaintenanceMode(enabled: boolean) {
   return { success: true };
 }
 
-// Wipes every awarded badge, site-wide — for re-tuning badge criteria during
-// development without stale grants sticking around. Players re-earn
-// anything they're still eligible for next time they load their profile.
 export async function resetAllBadges() {
   if (!(await requireAdmin())) {
     return { error: 'Admins only.', success: false };
@@ -84,8 +75,6 @@ export async function resetAllBadges() {
   return { success: true };
 }
 
-// Looks up a player by USBX user id for the Community Badges admin panel —
-// returns their current badges so the panel can show grant/revoke state.
 export async function lookupPlayerBadges(usbxUserId: number) {
   if (!(await requireAdmin())) {
     return { error: 'Admins only.', success: false as const };
@@ -141,8 +130,6 @@ export async function revokeBadge(usbxUserId: number, badgeId: string) {
   return { success: true };
 }
 
-// Re-pulls RAP/Value/Price/owners from USBX for an item that was originally
-// added via the link scraper, so prices stay in sync as items resell.
 export async function refreshItemPricing(itemId: string) {
   if (!(await requireAdmin())) {
     return { error: 'Admins only.', success: false };
@@ -236,7 +223,6 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
   const editorUsername = editor.username || `User #${editor.usbxUserId}`;
 
   try {
-    // 1. Fetch current item state
     const { data: item, error: fetchErr } = await supabase
       .from('items')
       .select('value, trend, demand, rap, available_owners, copies_sold, price_best_resale, name, item_image_url')
@@ -250,7 +236,6 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
     const updates: any = {};
     const changesToLog = [];
 
-    // Compare Value
     if (data.value !== item.value) {
       updates.value = data.value;
       changesToLog.push({
@@ -263,7 +248,6 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
       });
     }
 
-    // Compare Trend
     const currentTrend = item.trend || 'Stable';
     if (data.trend !== currentTrend) {
       updates.trend = data.trend;
@@ -277,7 +261,6 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
       });
     }
 
-    // Compare Demand
     const currentDemand = item.demand || 'Normal';
     if (data.demand !== currentDemand) {
       updates.demand = data.demand;
@@ -295,7 +278,6 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
       return { error: 'No changes were detected.', success: false };
     }
 
-    // 2. Update item
     const { error: updateErr } = await supabase
       .from('items')
       .update(updates)
@@ -305,7 +287,6 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
       return { error: `Failed to update item: ${updateErr.message}`, success: false };
     }
 
-    // 3. Log changes
     if (changesToLog.length > 0) {
       const { error: logErr } = await supabase
         .from('item_value_changes')
@@ -316,7 +297,6 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
       }
     }
 
-    // 4. Update chart history if value changed
     if (updates.value !== undefined) {
       const { error: histErr } = await supabase
         .from('item_price_history')
@@ -334,7 +314,6 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
       }
     }
       
-    // Discord Webhook
     const embeds = [];
 
     const editorFooter = { text: `Updated by ${editorUsername}` };
@@ -343,7 +322,7 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
       embeds.push({
         title: `Value Update: ${item.name}`,
         url: `https://usbx.trade/items/${itemId}`,
-        color: updates.value > (item.value || 0) ? 0x22c55e : 0xef4444, // Green for increase, Red for decrease
+        color: updates.value > (item.value || 0) ? 0x22c55e : 0xef4444,
         thumbnail: item.item_image_url ? { url: item.item_image_url } : undefined,
         fields: [
           { name: 'Old Value', value: String(item.value || 0), inline: true },

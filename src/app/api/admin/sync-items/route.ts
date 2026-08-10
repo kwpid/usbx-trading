@@ -6,27 +6,12 @@ import { tokensToScrips } from '@/lib/currency';
 import { syncItemOwners } from '@/lib/itemOwnersSync';
 import { revalidatePath } from 'next/cache';
 
-// ─── ID SYSTEM EXPLANATION (corrected) ───────────────────────────────────────
+// USBX's /marketplace/{id} URL and every enrichment endpoint use entry.id
+// (the store listing id), not entry.item.id (the catalog item id) — entry.id
+// is what we mirror as our own `id`/items/{id} URL.
 //
-// USBX's own marketplace URL — /marketplace/{id} — and every enrichment
-// endpoint (/rap, /owners, /recent-sales, /resellers) all use entry.id (the
-// store listing ID), NOT entry.item.id (the catalog item ID). Confirmed by
-// testing live: /marketplace/547 → "Mahjong Crown", whose catalog item.id is
-// 668 — the URL uses 547, not 668. So entry.id is what we mirror as our own
-// `id` (and therefore our own /items/{id} URL), matching USBX 1:1.
-//
-// entry.item.id is kept only as descriptive metadata if ever needed later;
-// it is NOT our primary key and NOT used in URLs or API calls.
-//
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// This endpoint walks the USBX marketplace one page at a time (10 items/page
-// to avoid serverless timeouts). For every non-clothing item it finds it:
-//   1. Filters by clothingType === null
-//   2. Fetches /rap and /owners using entry.id
-//   3. Upserts into `items` and writes a price-history snapshot
-//
-// Call repeatedly with the returned nextCursor until done === true.
+// Walks the marketplace 10 items/page (serverless timeout headroom); call
+// repeatedly with the returned nextCursor until done === true.
 export async function GET(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get('secret');
   const secretOk = Boolean(secret) && secret === process.env.REFRESH_PRICES_SECRET;
@@ -54,14 +39,13 @@ export async function GET(request: NextRequest) {
   const errors: { id: number; error: string }[] = [];
 
   for (const entry of page.items) {
-    // Strict clothing gate — null clothingType = real USBX item; anything else = skip
     if (entry.item.clothingType !== null) {
       skipped++;
       continue;
     }
 
-    const itemId = entry.id;           // matches USBX's /marketplace/{id} URL — our primary key
-    const listingId = entry.id;        // same id — all enrichment endpoints use it too
+    const itemId = entry.id;
+    const listingId = entry.id;
 
     try {
       const rapData = await fetchItemRap(listingId).catch(() => null);
@@ -74,20 +58,12 @@ export async function GET(request: NextRequest) {
       const rapScrips = rapData?.rap ? toScrips(rapData.rap) : null;
       const listingPriceScrips = entry.price != null ? toScrips(entry.price) : null;
 
-      // The items row must exist before item_owners can be written — that
-      // table has a foreign key on item_id, so syncItemOwners has to run
-      // AFTER this upsert, not concurrently with it (a brand-new item's
-      // ownership insert would silently fail on the FK constraint
-      // otherwise — exactly the bug where a freshly-published limited
-      // never shows up in anyone's profile inventory).
+      // items row must exist before item_owners (FK on item_id) — this
+      // upsert has to run before syncItemOwners, not concurrently with it.
       const { error } = await supabase.from('items').upsert(
         {
           id: itemId,
           listing_id: listingId,
-          // The stable catalog item id, distinct from our own `id` (the
-          // listing id). Resale listings of this same item keep this value
-          // constant while getting their own listing id — this is how the
-          // Deals feature resolves reseller listings back to this row.
           catalog_item_id: entry.item.id,
           name: entry.item.name,
           description: entry.item.description,
@@ -116,7 +92,6 @@ export async function GET(request: NextRequest) {
 
       upserted++;
 
-      // Price history snapshot for charts
       const { error: snapErr } = await supabase.from('item_price_history').insert({
         item_id: itemId,
         rap: rapScrips,

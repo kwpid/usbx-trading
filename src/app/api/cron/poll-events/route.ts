@@ -7,18 +7,12 @@ import { resolveListingsToDealRows } from '@/lib/dealsSync';
 import { discoverNewItems } from '@/lib/catalogDiscovery';
 import { syncItemOwners } from '@/lib/itemOwnersSync';
 
-// One-shot version of src/scripts/market-worker.ts, meant to be triggered on
-// a schedule (GitHub Actions cron, Vercel Cron, etc.) instead of running as
-// a standalone always-on process. Vercel serverless functions can't keep a
-// setTimeout loop alive between requests, so the "poll every N seconds"
-// cursor has to live in the DB (site_settings.last_seen_event_id) instead of
-// an in-memory variable — each invocation picks up where the last one left
-// off, does one pass, and exits.
+// One-shot version of src/scripts/market-worker.ts for a scheduled trigger
+// instead of an always-on process. The poll cursor lives in
+// site_settings.last_seen_event_id since serverless can't hold it in memory
+// between invocations.
 
 const LISTING_EVENT_TYPES = new Set(['RESALE_LISTED', 'RESALE_RELISTED', 'RESALE_PURCHASED']);
-// Only alert on listings priced at least this far below RAP — matches the
-// Deals page's own "good deal" framing, but a bit stricter to avoid
-// spamming the webhook on every marginal discount.
 const DEAL_ALERT_THRESHOLD_PCT = 15;
 
 async function updateItemInDb(
@@ -36,9 +30,8 @@ async function updateItemInDb(
   ]);
   const uniqueOwners = ownersResult.uniqueOwners;
 
-  // Respect the RAP endpoint's own currencyCode — some items trade in
-  // SCRIPS directly, so unconditionally assuming tokens inflates their RAP
-  // by 50x (the same bug fixed in refresh-all-items/route.ts).
+  // currencyCode matters — assuming tokens unconditionally inflates
+  // SCRIPS-denominated items by 50x.
   const rapRaw = rapData?.rap ?? null;
   const rapScrips = rapRaw != null
     ? (rapData?.currencyCode !== 'SCRIPS' ? tokensToScrips(rapRaw) : Math.round(rapRaw))
@@ -65,9 +58,7 @@ async function updateItemInDb(
     copies_sold: null,
   });
 
-  // The event payload itself doesn't carry buyer/seller/serial detail — pull
-  // the freshest sale record. Dedup on eventId since the same sale can
-  // surface again on the next poll.
+  // Dedup on eventId since the same sale can surface again on the next poll.
   try {
     const sales = await fetchItemRecentSales(listingId);
     const latest = sales[0];
@@ -130,9 +121,6 @@ async function updateItemInDb(
   }
 }
 
-// Mirrors the newest listings window into marketplace_listings (same as the
-// worker did) and, for anything new or repriced that clears the discount
-// threshold, fires the Deals webhook.
 async function refreshListingsAndAlertDeals() {
   const { listings } = await fetchMarketplaceListings({ limit: 30, sort: 'listedAt' });
   const relevant = listings.filter(
@@ -205,7 +193,6 @@ export async function GET(request: NextRequest) {
       limit: 50,
     });
 
-    // Process oldest-first so the cursor advances monotonically.
     const events: any[] = [...rawEvents].sort((a: any, b: any) => a.id - b.id);
 
     for (const event of events) {
@@ -217,8 +204,6 @@ export async function GET(request: NextRequest) {
         listingsDirty = true;
       }
 
-      // Events carry the catalog item ID, NOT our own `id` — resolve via
-      // catalog_item_id, never assume they're the same value.
       const catalogItemId: number | undefined = event.item?.id;
       if (!catalogItemId) continue;
 
@@ -250,9 +235,6 @@ export async function GET(request: NextRequest) {
       await refreshListingsAndAlertDeals();
     }
 
-    // New items don't reliably fire a RESALE_* event (their first activity
-    // is often a STORE_PURCHASE), so discovery can't rely on the event loop
-    // above — check the newest listings window every run instead.
     discovered = await discoverNewItems();
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Poll failed' }, { status: 502 });

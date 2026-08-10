@@ -19,18 +19,12 @@ export class UsbxApiError extends Error {
 }
 
 // Vercel's serverless IP ranges get blocked by USBX's Cloudflare bot
-// protection (confirmed: same request succeeds from a plain residential IP
-// or from a Cloudflare Worker, but 403s from Vercel). When USBX_PROXY_URL is
-// set, route every request through a small Cloudflare Worker that forwards
-// to USBX instead — see usbx-trading-api.tnivens73.workers.dev. Falls back
-// to hitting USBX directly when unset (local dev, where the direct call
-// already works fine).
+// protection. When USBX_PROXY_URL is set, route through a Cloudflare
+// Worker instead (usbx-trading-api.tnivens73.workers.dev); falls back to
+// hitting USBX directly when unset (local dev).
 function resolveUsbxRequest(path: string): { url: string; headers: Record<string, string> } {
   const proxyUrlRaw = process.env.USBX_PROXY_URL;
   if (proxyUrlRaw) {
-    // Tolerate the env var being entered without a scheme (e.g.
-    // "usbx-proxy.workers.dev" instead of "https://usbx-proxy.workers.dev")
-    // — fetch() throws an opaque "Failed to parse URL" otherwise.
     const proxyUrl = /^https?:\/\//i.test(proxyUrlRaw) ? proxyUrlRaw : `https://${proxyUrlRaw}`;
     return {
       url: `${proxyUrl.replace(/\/$/, '')}${path}`,
@@ -41,9 +35,6 @@ function resolveUsbxRequest(path: string): { url: string; headers: Record<string
   return {
     url: `${USBX_ORIGIN}${path}`,
     headers: {
-      // Serverless/edge fetches otherwise carry no User-Agent at all, which
-      // is an easy bot-protection tripwire (Cloudflare, etc.) — send
-      // something that reads as an ordinary browser request.
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       Accept: 'application/json, text/plain, */*',
@@ -122,19 +113,16 @@ export type UsbxOwnerRow = {
   owner: { id: number; username: string; profile?: { headshotUrl: string | null } } | null;
 };
 
-// Owners are paginated; walk every page. Used both for an exact
-// unique-owner count and (on the item page) the actual owner/hoarder lists.
 export async function fetchItemOwners(itemId: string | number): Promise<UsbxOwnerRow[]> {
   const all: UsbxOwnerRow[] = [];
   let cursor: string | number | undefined;
-  const MAX_PAGES = 200; // 200 * 100 = 20,000 owned serials, far beyond any real item
+  const MAX_PAGES = 200;
 
   for (let page = 0; page < MAX_PAGES; page++) {
     const query = cursor ? `?limit=100&cursor=${cursor}` : '?limit=100';
     const json = await usbxGetRaw(`/api/marketplace/item/${itemId}/owners${query}`);
     const rows: UsbxOwnerRow[] = json.data ?? [];
     all.push(...rows);
-    // Stop once a short page or an unchanged/missing cursor signals the end.
     if (rows.length < 100 || !json.nextCursor || json.nextCursor === cursor) break;
     cursor = json.nextCursor;
   }
@@ -170,16 +158,10 @@ export type UsbxItemFullDetails = {
   uniqueOwners: number;
   rapScrips: number | null;
   valueScrips: number | null;
-  // "Price" is the lowest current resale listing — closer to "what would it
-  // actually cost to buy one right now" than RAP or Value.
   priceScrips: number | null;
-  // Straight from the item's own normalDetails.isLimited flag.
   isLimited: boolean;
 };
 
-// Gathers everything the admin add-item flow and the pricing refresh both
-// need, in one call, using the item's own currency (assume TOKENS unless
-// told otherwise; the API doesn't attach a currency code to /value).
 export async function fetchItemFullDetails(itemId: string | number): Promise<UsbxItemFullDetails> {
   const [storeItem, rap, value, uniqueOwners] = await Promise.all([
     fetchItem(itemId),
@@ -200,9 +182,6 @@ export async function fetchItemFullDetails(itemId: string | number): Promise<Usb
     rapScrips: toScrips(rap?.rap),
     valueScrips: toScrips(value.recentAveragePrice),
     priceScrips: toScrips(value.lowestResalePrice),
-    // normalDetails.isLimited is the authoritative flag straight from the
-    // item object; fall back to the RAP/stock heuristic only if it's ever
-    // missing for some item shape we haven't seen.
     isLimited: storeItem.item.normalDetails?.isLimited ?? (rap !== null || storeItem.stockTotal !== null),
   };
 }
@@ -242,9 +221,6 @@ export async function fetchMarketplaceListings(
   return { listings: json.data?.items ?? [], nextCursor: json.data?.nextCursor ?? null };
 }
 
-// The list endpoint returns the same full nested item shape as fetchItem()
-// per entry, so cataloging the whole marketplace doesn't need a per-item
-// follow-up call.
 export async function fetchItemsPage(
   params: { cursor?: number; limit?: number; sort?: string; category?: string } = {}
 ): Promise<{ items: UsbxItem[]; nextCursor: number | null }> {
@@ -258,12 +234,8 @@ export async function fetchItemsPage(
   return { items: json.data?.items ?? [], nextCursor: json.data?.nextCursor ?? null };
 }
 
-// Best-effort: the API doesn't expose an explicit "is clothing" flag or a
-// documented category enum, but actual garments (shirts, pants, etc.) carry
-// a clothingType while accessories/hats/gear (which we want) leave it null —
-// e.g. the "Mahjong Crown" hat has clothingType: null, visualCategory: "HAT".
-// If real sync data shows this assumption is wrong, this is the one place
-// to fix it.
+// Garments carry a clothingType; accessories/hats/gear (what we track)
+// leave it null. Re-check this assumption if sync data ever shows otherwise.
 export function isClothingItem(entry: UsbxItem): boolean {
   return Boolean(entry.item.clothingType);
 }
@@ -278,10 +250,6 @@ export type UsbxProfileSummary = {
       bio: string | null;
     };
   };
-  // Explicit, authoritative privacy flags straight from the profile summary
-  // — cheap to check (this call is already made regardless) versus the
-  // expensive way of finding out (attempting the full paginated inventory
-  // fetch and catching the 403).
   privacy?: {
     viewInventory?: string;
     canViewInventory?: boolean;
@@ -303,8 +271,8 @@ export type UsbxInventoryItem = {
   item: {
     id: number;
     itemId: number;
-    // Matches our own items.id (the store listing id) — join against our
-    // DB with this, not item.id or item.itemId.
+    // Matches our own items.id (the store listing id) — join with this,
+    // not item.id or item.itemId.
     storeItemId: number;
     name: string;
     visualCategory: string | null;
@@ -312,13 +280,12 @@ export type UsbxInventoryItem = {
   };
 };
 
-// Public, privacy-respecting inventory view (deliberately not
-// /api/game/users/{id}, which is documented as "game-trusted" and returns
-// private fields like verified emails/currency balances — wrong endpoint
-// for a public profile page). Walks every page, capped generously.
+// Deliberately not /api/game/users/{id}, which returns private fields
+// (verified emails, currency balances) — this is the public,
+// privacy-respecting endpoint.
 export async function fetchAllProfileInventory(userId: string | number): Promise<UsbxInventoryItem[]> {
   const all: UsbxInventoryItem[] = [];
-  const MAX_PAGES = 50; // 50 * 100 = 5,000 owned items, far beyond any real inventory
+  const MAX_PAGES = 50;
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     const timestamp = Date.now();
@@ -350,14 +317,9 @@ export async function searchSite(query: string): Promise<UsbxSearchResult[]> {
   return data?.results ?? [];
 }
 
-// Real-time market events (listings, relistings, purchases) — used by the
-// worker script and the cron poll route to detect new activity since the
-// last check. Routed through usbxGetRaw like everything else, so it picks
-// up the Cloudflare Worker proxy automatically when configured.
 export async function fetchPublicEvents(params: { eventTypes: string[]; limit?: number }): Promise<any[]> {
   const qs = new URLSearchParams();
-  // USBX's API wants one `eventType` param per type, not a single
-  // comma-joined value — the joined form 422s outright.
+  // Repeated eventType params, not a comma-joined value — USBX 422s on that.
   for (const type of params.eventTypes) qs.append('eventType', type);
   qs.set('limit', String(params.limit ?? 50));
   const json = await usbxGetRaw(`/api/public-index/events?${qs.toString()}`);
@@ -373,10 +335,6 @@ export type UsbxRapLeaderboardEntry = {
   limitedItemCount: number;
 };
 
-// Used by the admin player-sync route. Routed through usbxGetRaw like
-// everything else — this used to be a raw unproxied fetch() straight to
-// USBX, which Vercel's IP range gets Cloudflare-blocked on (an HTML
-// challenge page back instead of JSON, surfacing as a JSON.parse error).
 export async function fetchRapLeaderboard(take: number, cursor?: number): Promise<{ entries: UsbxRapLeaderboardEntry[]; nextCursor: number | null }> {
   const qs = new URLSearchParams();
   qs.set('type', 'rap');
