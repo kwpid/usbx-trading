@@ -30,13 +30,13 @@ export async function generateMetadata(props: { params: Promise<{ user_id: strin
       openGraph: {
         title,
         description,
-        images: summary.user.avatarUrl ? [summary.user.avatarUrl] : [],
+        images: summary.user.profile?.avatarUrl ? [summary.user.profile.avatarUrl] : [],
       },
       twitter: {
         card: 'summary_large_image',
         title,
         description,
-        images: summary.user.avatarUrl ? [summary.user.avatarUrl] : [],
+        images: summary.user.profile?.avatarUrl ? [summary.user.profile.avatarUrl] : [],
       }
     };
   } catch (err) {
