@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import RarityBadge from '@/app/components/RarityBadge';
 import { setItemNft } from './nftActions';
+import { PlayerHistoryRow, SnapshotItem, findHistoryIndexForTimestamp } from '@/lib/snapshot';
 
 export type InventoryCopy = {
   serialId: number;
@@ -27,6 +29,7 @@ type Props = {
   inventoryIsPrivate: boolean;
   nftItemIds?: number[];
   isOwnProfile?: boolean;
+  history?: PlayerHistoryRow[];
 };
 
 function formatNumber(num: number | null | undefined) {
@@ -45,6 +48,85 @@ function timeAgo(dateString: string | null): string {
   if (m < 12) return `${m} month${m > 1 ? 's' : ''} ago`;
   const y = Math.floor(d / 365);
   return `${y} year${y > 1 ? 's' : ''} ago`;
+}
+
+function fmtFullDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Rolimons-style history view — swapped in for the live grid when the URL
+// carries ?timestamp=. Deliberately shows only what was owned and its
+// serial number(s): no RAP/value/available, since those are today's live
+// numbers, not what applied back then.
+function HistoricalInventoryView({
+  row,
+  index,
+  total,
+  onPrev,
+  onNext,
+  onBackToLive,
+}: {
+  row: PlayerHistoryRow;
+  index: number;
+  total: number;
+  onPrev: () => void;
+  onNext: () => void;
+  onBackToLive: () => void;
+}) {
+  const items: SnapshotItem[] = [...(row.inventory_snapshot || [])].sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <div>
+      <div className="card" style={{ padding: '1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Inventory Date</div>
+          <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{fmtFullDate(row.recorded_at)}</div>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button onClick={onPrev} disabled={index === 0} className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem', opacity: index === 0 ? 0.5 : 1 }}>
+            ◀ Previous
+          </button>
+          <button onClick={onNext} className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}>
+            {index >= total - 1 ? 'Back to Live' : 'Next ▶'}
+          </button>
+          <button onClick={onBackToLive} className="btn btn-primary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}>
+            Live Inventory
+          </button>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          No inventory snapshot was recorded for this date.
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
+          {items.map((item) => (
+            <Link key={item.id} href={`/items/${item.id}`} className="card" style={{ display: 'block', padding: 0, overflow: 'hidden', textDecoration: 'none' }}>
+              <div style={{ padding: '0.6rem 0.75rem', borderBottom: '1px solid var(--border-color)', fontWeight: 700, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {item.name}
+                {item.copies > 1 && <span style={{ marginLeft: '0.4rem', fontSize: '0.75rem', color: 'var(--rare-color)', fontWeight: 700 }}>x{item.copies}</span>}
+              </div>
+              <div style={{ height: '110px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {item.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.imageUrl} alt={item.name} style={{ maxWidth: '75%', maxHeight: '75%', objectFit: 'contain' }} />
+                ) : (
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>No Image</div>
+                )}
+              </div>
+              <div style={{ padding: '0.6rem 0.75rem', fontSize: '0.8rem' }}>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>Serial{item.serials.length > 1 ? 's' : ''}</div>
+                <div style={{ color: 'var(--accent-color)', fontWeight: 600 }}>
+                  {item.serials.length > 0 ? item.serials.map((s) => `#${s}`).join(', ') : 'Unknown'}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CopiesModal({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
@@ -113,7 +195,26 @@ function CopiesModal({ item, onClose }: { item: InventoryItem; onClose: () => vo
   );
 }
 
-export default function ProfileInventoryClient({ items, inventoryIsPrivate, nftItemIds, isOwnProfile }: Props) {
+export default function ProfileInventoryClient({ items, inventoryIsPrivate, nftItemIds, isOwnProfile, history }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const historyList = history ?? [];
+  const historyIndex = findHistoryIndexForTimestamp(historyList, searchParams.get('timestamp'));
+
+  const goToHistoryIndex = (idx: number | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (idx === null) {
+      params.delete('timestamp');
+    } else {
+      const row = historyList[idx];
+      if (!row) return;
+      params.set('timestamp', String(Math.floor(new Date(row.recorded_at).getTime() / 1000)));
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
   const [sortBy, setSortBy] = useState('highest_value');
   const [filterBy, setFilterBy] = useState('value');
   const [min, setMin] = useState('');
@@ -219,6 +320,22 @@ export default function ProfileInventoryClient({ items, inventoryIsPrivate, nftI
       <div className="card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
         This player's inventory is set to private.
       </div>
+    );
+  }
+
+  // Historical mode is checked after the privacy gate above, not before —
+  // a snapshot recorded while the inventory was public still shouldn't be
+  // shown once the player has since gone private.
+  if (historyIndex >= 0) {
+    return (
+      <HistoricalInventoryView
+        row={historyList[historyIndex]}
+        index={historyIndex}
+        total={historyList.length}
+        onPrev={() => goToHistoryIndex(Math.max(0, historyIndex - 1))}
+        onNext={() => goToHistoryIndex(historyIndex >= historyList.length - 1 ? null : historyIndex + 1)}
+        onBackToLive={() => goToHistoryIndex(null)}
+      />
     );
   }
 

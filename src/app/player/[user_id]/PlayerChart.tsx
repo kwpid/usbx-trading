@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   AreaChart,
   Area,
@@ -12,26 +12,19 @@ import {
   ResponsiveContainer,
   Legend,
   Brush,
+  ReferenceArea,
 } from 'recharts';
-import { SnapshotItem } from '@/lib/snapshot';
-
-type HistoryRow = {
-  recorded_at: string;
-  total_rap: number;
-  total_value: number;
-  inventory_snapshot: SnapshotItem[] | null;
-};
+import { PlayerHistoryRow, findHistoryIndexForTimestamp, utcDayKey } from '@/lib/snapshot';
 
 type Props = {
-  history: HistoryRow[];
+  history: PlayerHistoryRow[];
 };
 
 type ChartPoint = {
   ts: number;
   date: string;
-  RAP: number;
-  Value: number;
-  inventory: SnapshotItem[] | null;
+  RAP: number | null;
+  Value: number | null;
 };
 
 const RANGES = [
@@ -65,10 +58,18 @@ function fmtFullDate(ts: number) {
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload || payload.length === 0) return null;
   const point: ChartPoint = payload[0].payload;
+  const real = payload.filter((entry: any) => entry.value != null);
+  if (real.length === 0) {
+    return (
+      <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.6rem 0.85rem', fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+        Archived (before tracking began)
+      </div>
+    );
+  }
   return (
     <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.6rem 0.85rem' }}>
       <div style={{ fontWeight: 700, marginBottom: '0.35rem', fontSize: '0.85rem' }}>{fmtFullDate(point.ts)}</div>
-      {payload.map((entry: any) => (
+      {real.map((entry: any) => (
         <div key={entry.dataKey} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', fontSize: '0.8rem', color: entry.color }}>
           <span>{entry.dataKey}</span>
           <span style={{ fontWeight: 600 }}>{formatNumber(entry.value)}</span>
@@ -79,82 +80,63 @@ function CustomTooltip({ active, payload }: any) {
   );
 }
 
-function InventoryOnDate({ point, onClose }: { point: ChartPoint; onClose: () => void }) {
-  const items = point.inventory || [];
-  const sorted = [...items].sort((a, b) => (b.value || 0) - (a.value || 0) || (b.rap || 0) - (a.rap || 0));
-
-  return (
-    <div className="card" style={{ padding: '1rem', marginTop: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <div>
-          <div style={{ fontWeight: 700 }}>Inventory on {fmtFullDate(point.ts)}</div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-            RAP {formatNumber(point.RAP)} · Value {formatNumber(point.Value)} · {items.length} unique item{items.length === 1 ? '' : 's'}
-          </div>
-        </div>
-        <button onClick={onClose} style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', lineHeight: 1 }}>✕</button>
-      </div>
-
-      {items.length === 0 ? (
-        <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-          No inventory snapshot was recorded for this date.
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', maxHeight: '360px', overflowY: 'auto' }}>
-          {sorted.map((item) => (
-            <Link key={item.id} href={`/items/${item.id}`} className="card" style={{ padding: 0, overflow: 'hidden', textDecoration: 'none' }}>
-              <div style={{ position: 'relative', height: '90px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {item.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.imageUrl} alt={item.name} style={{ maxWidth: '75%', maxHeight: '75%', objectFit: 'contain' }} />
-                ) : (
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>No Image</div>
-                )}
-                {item.copies > 1 && (
-                  <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'var(--rare-color)', color: '#000', fontWeight: 800, fontSize: '0.7rem', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
-                    x{item.copies}
-                  </div>
-                )}
-              </div>
-              <div style={{ padding: '0.5rem 0.6rem', fontSize: '0.75rem' }}>
-                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem' }}>{item.name}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>RAP</span><span>{formatNumber(item.rap)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Value</span><span>{formatNumber(item.value)}</span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function PlayerChart({ history }: Props) {
-  const [range, setRange] = useState<(typeof RANGES)[number]['key']>('3m');
-  const [selected, setSelected] = useState<ChartPoint | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const allData: ChartPoint[] = useMemo(
+  const [range, setRange] = useState<(typeof RANGES)[number]['key']>('3m');
+
+  const realData: ChartPoint[] = useMemo(
     () =>
       (history || []).map((row) => ({
         ts: new Date(row.recorded_at).getTime(),
         date: fmtAxisDate(new Date(row.recorded_at).getTime()),
         RAP: row.total_rap,
         Value: row.total_value,
-        inventory: row.inventory_snapshot,
       })),
     [history]
   );
 
   const activeRange = RANGES.find((r) => r.key === range)!;
-  const data = useMemo(() => {
-    if (!activeRange.days) return allData;
+
+  // For a fixed-length range (3M, 1Y, etc.) where real tracking doesn't go
+  // back that far, prepend a null-valued boundary point so the chart's axis
+  // spans the full window — that's what leaves the gap a ReferenceArea can
+  // shade as "Archived Data", the same way Rolimons marks pre-tracking time.
+  const { data, archivedRange } = useMemo(() => {
+    if (!activeRange.days) return { data: realData, archivedRange: null as [string, string] | null };
+
     const cutoff = Date.now() - activeRange.days * 24 * 60 * 60 * 1000;
-    return allData.filter((p) => p.ts >= cutoff);
-  }, [allData, activeRange]);
+    const windowed = realData.filter((p) => p.ts >= cutoff);
+    if (windowed.length === 0) return { data: windowed, archivedRange: null as [string, string] | null };
+
+    const firstReal = windowed[0];
+    if (utcDayKey(firstReal.ts) <= utcDayKey(cutoff)) {
+      return { data: windowed, archivedRange: null as [string, string] | null };
+    }
+
+    const boundary: ChartPoint = { ts: cutoff, date: fmtAxisDate(cutoff), RAP: null, Value: null };
+    return { data: [boundary, ...windowed], archivedRange: [boundary.date, firstReal.date] as [string, string] };
+  }, [realData, activeRange]);
+
+  // Rolimons-style deep link — https://usbx.trade/player/{id}?timestamp={unix
+  // seconds}. The URL is the source of truth for which point is selected
+  // (shareable, back-button-able); the inventory section below reads the
+  // same param to swap into historical mode.
+  const selectedIndex = findHistoryIndexForTimestamp(history, searchParams.get('timestamp'));
+  const selected = selectedIndex >= 0 ? data.find((p) => utcDayKey(p.ts) === utcDayKey(new Date(history[selectedIndex].recorded_at).getTime())) : null;
+
+  const selectPoint = (point: ChartPoint | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (point) {
+      params.set('timestamp', String(Math.floor(point.ts / 1000)));
+    } else {
+      params.delete('timestamp');
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
 
   if (!history || history.length === 0) {
     return (
@@ -194,9 +176,14 @@ export default function PlayerChart({ history }: Props) {
             data={data}
             margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
             onClick={(state: any) => {
-              if (state?.activePayload?.[0]?.payload) {
-                setSelected(state.activePayload[0].payload as ChartPoint);
-              }
+              // recharts v3 no longer hands back `activePayload` the way v2
+              // did — the click state only carries an index/label, so we
+              // look the point up ourselves from the same `data` array the
+              // chart is rendering.
+              const rawIndex = state?.activeTooltipIndex ?? state?.activeIndex;
+              const idx = rawIndex == null ? NaN : Number(rawIndex);
+              const point = !Number.isNaN(idx) ? data[idx] : data.find((p) => p.date === state?.activeLabel);
+              if (point && point.RAP != null) selectPoint(point);
             }}
           >
             <defs>
@@ -214,8 +201,19 @@ export default function PlayerChart({ history }: Props) {
             <YAxis stroke="var(--text-secondary)" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} tickFormatter={formatYAxis} />
             <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--accent-color)', strokeWidth: 1 }} />
             <Legend />
-            <Area type="monotone" dataKey="RAP" stroke="var(--rare-color)" fillOpacity={1} fill="url(#colorRap)" strokeWidth={2} activeDot={{ r: 6, style: { cursor: 'pointer' } }} />
-            <Area type="monotone" dataKey="Value" stroke="var(--success-color)" fillOpacity={1} fill="url(#colorValue)" strokeWidth={2} activeDot={{ r: 6, style: { cursor: 'pointer' } }} />
+            {archivedRange && (
+              <ReferenceArea
+                x1={archivedRange[0]}
+                x2={archivedRange[1]}
+                fill="var(--text-secondary)"
+                fillOpacity={0.08}
+                stroke="var(--border-color)"
+                strokeDasharray="4 4"
+                label={{ value: 'Archived Data', position: 'insideTopLeft', fill: 'var(--text-secondary)', fontStyle: 'italic', fontSize: 12 }}
+              />
+            )}
+            <Area type="monotone" dataKey="RAP" stroke="var(--rare-color)" fillOpacity={1} fill="url(#colorRap)" strokeWidth={2} connectNulls={false} activeDot={{ r: 6, style: { cursor: 'pointer' } }} />
+            <Area type="monotone" dataKey="Value" stroke="var(--success-color)" fillOpacity={1} fill="url(#colorValue)" strokeWidth={2} connectNulls={false} activeDot={{ r: 6, style: { cursor: 'pointer' } }} />
             {data.length > 1 && (
               <Brush
                 dataKey="date"
@@ -229,7 +227,14 @@ export default function PlayerChart({ history }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {selected && <InventoryOnDate point={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--accent-color)', textAlign: 'right' }}>
+          Viewing inventory from {fmtFullDate(selected.ts)} below.{' '}
+          <button onClick={() => selectPoint(null)} style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
+            back to live
+          </button>
+        </div>
+      )}
     </div>
   );
 }

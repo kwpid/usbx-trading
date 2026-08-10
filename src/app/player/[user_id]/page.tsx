@@ -393,6 +393,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
           inventoryIsPrivate={inventoryIsPrivate}
           nftItemIds={nftItemIds}
           isOwnProfile={isOwnProfile}
+          history={historyData || []}
         />
       </div>
     </div>

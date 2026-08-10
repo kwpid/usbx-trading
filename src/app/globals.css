@@ -63,6 +63,11 @@ button {
   border: none;
   cursor: pointer;
   font-family: inherit;
+  /* Browsers give <button> its own default text color instead of
+     inheriting from the page, which is why buttons without an explicit
+     color (item picker cards, search result rows) were rendering black
+     text on this dark theme. */
+  color: inherit;
 }
 
 /* Navigation */
@@ -181,6 +186,15 @@ button {
 
 .btn-secondary:hover {
   background-color: #27272a;
+}
+
+/* Used on the Trade Ads page's green (btn-primary) buttons — instead of
+   staying white, the label itself turns green on hover, with the
+   background pulling back so it stays readable. */
+.btn-hover-green:hover {
+  background-color: var(--bg-tertiary) !important;
+  color: var(--success-color) !important;
+  box-shadow: none !important;
 }
 
 /* Inputs */

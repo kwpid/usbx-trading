@@ -175,7 +175,7 @@ export default function TradeAdCard({
             {isBusy ? 'Closing...' : 'Close Ad'}
           </button>
         ) : (
-          <Link href={`/player/${ad.creator_usbx_id}`} className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', borderRadius: '999px', textDecoration: 'none' }}>
+          <Link href={`/player/${ad.creator_usbx_id}`} className="btn btn-primary btn-hover-green" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', borderRadius: '999px', textDecoration: 'none' }}>
             View Profile
           </Link>
         )}
