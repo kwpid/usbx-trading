@@ -78,7 +78,7 @@ function WildcardSlotContent({ tag }: { tag: WildcardTag }) {
   );
 }
 
-// Matches the /market item card layout (name header, image with LIMITED tag
+// Matches the /market item card layout (name header, image
 // + rarity badge, Price/RAP/Value/Available rows) so items look the same
 // whether you're browsing the marketplace or picking for a trade ad — just
 // a button instead of a link, since clicking adds it to a slot.
@@ -106,11 +106,7 @@ function PickerItemCard({
       </div>
 
       <div style={{ position: 'relative', height: '180px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {item.is_limited && (
-          <div style={{ position: 'absolute', top: '8px', left: '8px', backgroundColor: 'rgba(239, 68, 68, 0.2)', border: '1px solid #EF4444', color: '#EF4444', padding: '2px 6px', fontSize: '0.7rem', fontWeight: 'bold', borderRadius: '4px', zIndex: 10 }}>
-            LIMITED
-          </div>
-        )}
+
         <RarityBadge copies={item.copies_sold} />
         {item.item_image_url ? (
           // eslint-disable-next-line @next/next/no-img-element

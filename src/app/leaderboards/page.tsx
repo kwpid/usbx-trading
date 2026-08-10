@@ -196,19 +196,20 @@ function Paginator({ page, totalPages, pageNumbers }: { page: number; totalPages
       {page > 1 && (
         <Link
           href={`/leaderboards?page=${page - 1}`}
+          className="pagination-page-btn"
           style={{ padding: '0.35rem 0.65rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 4, color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.9rem' }}
         >◄</Link>
       )}
 
       {pageNumbers[0] > 1 && (
         <>
-          <Link href="/leaderboards?page=1" style={pagerStyle(false)}>1</Link>
+          <Link href="/leaderboards?page=1" className="pagination-page-btn" style={pagerStyle(false)}>1</Link>
           {pageNumbers[0] > 2 && <span style={{ color: 'var(--text-secondary)', padding: '0 0.25rem' }}>…</span>}
         </>
       )}
 
       {pageNumbers.map((p) => (
-        <Link key={p} href={`/leaderboards?page=${p}`} style={pagerStyle(p === page)}>{p}</Link>
+        <Link key={p} href={`/leaderboards?page=${p}`} className="pagination-page-btn" style={pagerStyle(p === page)}>{p}</Link>
       ))}
 
       {pageNumbers[pageNumbers.length - 1] < totalPages && (
@@ -216,13 +217,14 @@ function Paginator({ page, totalPages, pageNumbers }: { page: number; totalPages
           {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && (
             <span style={{ color: 'var(--text-secondary)', padding: '0 0.25rem' }}>…</span>
           )}
-          <Link href={`/leaderboards?page=${totalPages}`} style={pagerStyle(false)}>{totalPages}</Link>
+          <Link href={`/leaderboards?page=${totalPages}`} className="pagination-page-btn" style={pagerStyle(false)}>{totalPages}</Link>
         </>
       )}
 
       {page < totalPages && (
         <Link
           href={`/leaderboards?page=${page + 1}`}
+          className="pagination-page-btn"
           style={{ padding: '0.35rem 0.65rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 4, color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.9rem' }}
         >►</Link>
       )}

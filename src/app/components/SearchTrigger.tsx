@@ -109,7 +109,7 @@ export default function SearchTrigger() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="card"
+            className="card search-modal-inner"
             style={{ width: '100%', maxWidth: '720px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}
           >
             {/* Header */}
@@ -170,7 +170,7 @@ export default function SearchTrigger() {
                     No limiteds found.
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem' }}>
+                  <div className="search-modal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem' }}>
                     {limiteds.map((item) => (
                       <button
                         key={item.id}
@@ -209,7 +209,7 @@ export default function SearchTrigger() {
                   No players found.
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
+                <div className="search-modal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
                   {players.map((player) => (
                     <PlayerResultCard key={player.id} player={player} onClick={() => setOpen(false)} />
                   ))}

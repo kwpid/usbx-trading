@@ -27,7 +27,7 @@ export default async function TradeCalculatorPage(props: { searchParams: Promise
   const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+    <div className="page-surface fade-in" style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
       <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Trade Calculator</h1>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
         Click "You Give" or "You Receive" to pick which side you're adding to, then click items below to fill its slots.

@@ -4,13 +4,36 @@ import Link from "next/link";
 import SearchTrigger from "./components/SearchTrigger";
 import AdminNavLink from "./components/AdminNavLink";
 import AccountNavDropdown from "./components/AccountNavDropdown";
+import MobileHotbar from "./components/MobileHotbar";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "usbx.trade | Trading & Items",
-  description: "Track and trade exclusive items",
+  description: "The ultimate trading platform for Untitled Sandbox. Track live values for limiteds, connect with other players via trade ads, calculate fair deals, and climb the wealth leaderboards.",
+  openGraph: {
+    title: "usbx.trade | Trading & Items",
+    description: "The ultimate trading platform for Untitled Sandbox. Track live values for limiteds, connect with other players via trade ads, calculate fair deals, and climb the wealth leaderboards.",
+    url: "https://usbx.trade",
+    siteName: "usbx.trade",
+    images: [
+      {
+        url: "/background-image1.png",
+        width: 1200,
+        height: 630,
+        alt: "usbx.trade preview image",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "usbx.trade | Trading & Items",
+    description: "The ultimate trading platform for Untitled Sandbox. Track live values for limiteds, connect with other players via trade ads, calculate fair deals, and climb the wealth leaderboards.",
+    images: ["/background-image1.png"],
+  },
   icons: {
     icon: "/bg-pattern.png",
     shortcut: "/bg-pattern.png",
@@ -26,6 +49,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        {/* Top navbar — on mobile only the brand is visible; nav-links are hidden via CSS */}
         <nav className="navbar" style={{ padding: '1rem 2rem', borderBottom: 'none', backgroundColor: '#212620', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', justifyContent: 'center', position: 'relative' }}>
           <Link href="/" className="nav-brand" style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', textDecoration: 'none', position: 'absolute', left: '2rem' }}>
             <span style={{ color: '#e2b955' }}>usbx</span><span style={{ color: '#8353e4' }}>.</span>trade
@@ -66,6 +90,10 @@ export default function RootLayout({
             <AdminNavLink />
           </div>
         </nav>
+
+        {/* Mobile bottom hotbar — only visible on ≤768px via CSS */}
+        <MobileHotbar />
+
         <main className="container">
           {children}
         </main>

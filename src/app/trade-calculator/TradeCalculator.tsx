@@ -331,7 +331,7 @@ export default function TradeCalculator({
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: 0, opacity: activeSideFull ? 0.5 : 1, cursor: activeSideFull ? 'not-allowed' : 'pointer' }}
               >
                 <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)', fontWeight: 'bold', fontSize: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{item.name}</span>
                   <Link
                     href={`/items/${item.id}`}
                     onClick={(e) => e.stopPropagation()}
@@ -342,11 +342,7 @@ export default function TradeCalculator({
                   </Link>
                 </div>
                 <div style={{ position: 'relative', height: '160px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {item.is_limited && (
-                    <div style={{ position: 'absolute', top: '8px', left: '8px', backgroundColor: 'rgba(239, 68, 68, 0.2)', border: '1px solid #EF4444', color: '#EF4444', padding: '2px 6px', fontSize: '0.7rem', fontWeight: 'bold', borderRadius: '4px', zIndex: 10 }}>
-                      LIMITED
-                    </div>
-                  )}
+
                   <RarityBadge copies={item.copies_sold} />
                   {item.item_image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -358,7 +354,7 @@ export default function TradeCalculator({
                 <div style={{ padding: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>RAP</span>
-                    <span style={{ fontWeight: '500' }}>{formatNumber(item.rap)}</span>
+                    <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{formatNumber(item.rap)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Value</span>

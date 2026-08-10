@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { UsbxSale } from "@/lib/usbxApi";
 import { getRarity, RARITY_EMOJI, RARITY_LABEL } from "@/lib/rarity";
+import { getCurrentProfile } from "@/lib/roles";
 import ItemCharts from "./ItemCharts";
 import ItemDetailsTabs from "./ItemDetailsTabs";
 import OwnersList from "./OwnersList";
@@ -79,6 +80,7 @@ function buildHoarders(rows: OwnerRowWithAvatar[]): HoarderEntry[] {
 export default async function ItemPage(props: { params: Promise<{ item_id: string }> }) {
   const params = await props.params;
   const itemId = params.item_id;
+  const profile = await getCurrentProfile();
 
   // Everything on this page is a plain DB read — no live USBX calls here at
   // all. Ownership, sales, and RAP/owner counts are all kept fresh by
@@ -182,7 +184,7 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
     <div className="container" style={{ padding: '0', maxWidth: '1100px' }}>
 
       {/* Header Area */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+      <div className="item-page-header">
         <div>
           <h1 style={{ fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
             {item.name} {acronym && <span style={{ color: 'var(--text-secondary)', fontSize: '1.5rem', fontWeight: 'normal' }}>({acronym})</span>}
@@ -205,9 +207,11 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
               View on USBX
             </a>
           )}
-          <Link href={`/items/${item.id}/edit`} className="btn btn-primary" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', backgroundColor: 'var(--accent-hover)' }}>
-            Edit Item
-          </Link>
+          {profile?.role === 'admin' && (
+            <Link href={`/items/${item.id}/edit`} className="btn btn-primary" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', backgroundColor: 'var(--accent-hover)' }}>
+              Edit Item
+            </Link>
+          )}
           <Link href={`/item-value-changes/${item.id}`} className="btn btn-secondary" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             Value Changes
           </Link>
@@ -217,10 +221,10 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
       <div className="page-surface fade-in">
 
       {/* Main Overview Split */}
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '1rem', marginBottom: '1rem' }}>
+      <div className="item-main-grid">
 
         {/* Left: Image Box */}
-        <div className="card" style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: 'var(--bg-tertiary)' }}>
+        <div className="card item-image-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: 'var(--bg-tertiary)' }}>
            {item.item_image_url ? (
              <Image src={item.item_image_url} alt={item.name} fill style={{ objectFit: 'contain', padding: '1.5rem' }} />
            ) : (
@@ -240,7 +244,7 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
       </div>
 
       {/* 4 Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+      <div className="item-stats-grid">
         <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
            <div>
              <div style={{ fontSize: '0.85rem', color: 'var(--rare-color)' }}>Price</div>
@@ -284,7 +288,7 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
         ) : (
           <>
             {/* Ownership Top Summary */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div className="ownership-summary-grid">
               <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Known Owners</div>
                 <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{knownOwners}</div>

@@ -102,7 +102,7 @@ export default async function MarketPage(props: { searchParams: Promise<{ page?:
         <Link
           key={`page-${p}`}
           href={buildQuery({ page: p as number })}
-          className="btn"
+          className="btn pagination-page-btn"
           style={{
             backgroundColor: p === currentPage ? 'var(--bg-tertiary)' : 'transparent',
             color: p === currentPage ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -124,19 +124,19 @@ export default async function MarketPage(props: { searchParams: Promise<{ page?:
         <Suspense fallback={null}>
           <MarketControls />
         </Suspense>
-        <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+        <div className="pagination-row">
           {currentPage > 1 ? (
-            <Link href={buildQuery({ page: currentPage - 1 })} className="btn btn-secondary" style={{ padding: '0.4rem 0.6rem', textDecoration: 'none' }}>&larr;</Link>
+            <Link href={buildQuery({ page: currentPage - 1 })} className="btn btn-secondary pagination-page-btn" style={{ padding: '0.4rem 0.6rem', textDecoration: 'none' }}>&larr;</Link>
           ) : (
-            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.6rem', opacity: 0.5, cursor: 'not-allowed' }}>&larr;</button>
+            <button className="btn btn-secondary pagination-page-btn" style={{ padding: '0.4rem 0.6rem', opacity: 0.5, cursor: 'not-allowed' }}>&larr;</button>
           )}
 
           {renderPagination()}
 
           {currentPage < totalPages ? (
-            <Link href={buildQuery({ page: currentPage + 1 })} className="btn btn-secondary" style={{ padding: '0.4rem 0.6rem', textDecoration: 'none' }}>&rarr;</Link>
+            <Link href={buildQuery({ page: currentPage + 1 })} className="btn btn-secondary pagination-page-btn" style={{ padding: '0.4rem 0.6rem', textDecoration: 'none' }}>&rarr;</Link>
           ) : (
-            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.6rem', opacity: 0.5, cursor: 'not-allowed' }}>&rarr;</button>
+            <button className="btn btn-secondary pagination-page-btn" style={{ padding: '0.4rem 0.6rem', opacity: 0.5, cursor: 'not-allowed' }}>&rarr;</button>
           )}
 
           <Link
@@ -149,7 +149,7 @@ export default async function MarketPage(props: { searchParams: Promise<{ page?:
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
+      <div className="market-item-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
         {items.length === 0 ? (
           <div className="card" style={{ padding: '3rem', textAlign: 'center', gridColumn: '1 / -1', color: 'var(--text-secondary)' }}>
             No items match{query ? ` "${query}"` : ' this filter'}.
@@ -161,11 +161,6 @@ export default async function MarketPage(props: { searchParams: Promise<{ page?:
             </div>
 
             <div style={{ position: 'relative', height: '180px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               {item.is_limited && (
-                  <div style={{ position: 'absolute', top: '8px', left: '8px', backgroundColor: 'rgba(239, 68, 68, 0.2)', border: '1px solid #EF4444', color: '#EF4444', padding: '2px 6px', fontSize: '0.7rem', fontWeight: 'bold', borderRadius: '4px', zIndex: 10 }}>
-                    LIMITED
-                  </div>
-                )}
 
                 <RarityBadge copies={item.copies_sold} />
 

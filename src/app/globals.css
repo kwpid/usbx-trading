@@ -292,12 +292,6 @@ button {
   border: 1px solid var(--border-color);
 }
 
-@media (max-width: 640px) {
-  .page-surface {
-    padding: 1.25rem;
-  }
-}
-
 /* Shared spinner animation */
 @keyframes spin {
   0% { transform: rotate(0deg); }
@@ -348,4 +342,337 @@ button {
   background: linear-gradient(90deg, #FFFFFF, var(--rare-color));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* =====================================================
+   MOBILE BOTTOM HOTBAR
+   ===================================================== */
+
+.mobile-hotbar {
+  display: none; /* hidden on desktop */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background-color: var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+  /* Safe area for notched phones */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
+  align-items: stretch;
+  justify-content: space-around;
+}
+
+.mobile-hotbar-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  flex: 1;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0.4rem 0 0.5rem;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.mobile-hotbar-tab svg {
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.mobile-hotbar-tab.active,
+.mobile-hotbar-tab:active {
+  color: var(--rare-color);
+}
+
+.mobile-hotbar-tab.active svg {
+  color: var(--rare-color);
+}
+
+/* =====================================================
+   RESPONSIVE LAYOUT CLASSES
+   Used to override inline grids on mobile via !important
+   ===================================================== */
+
+/* item detail page: image + tabs side by side */
+.item-main-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* item detail page: 4-col stat cards */
+.item-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+/* item detail page: 3-col ownership summary */
+.ownership-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* item detail page header row (title + buttons) */
+.item-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 0.75rem;
+}
+
+/* player profile: avatar left + chart right */
+.player-profile-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  align-items: stretch;
+}
+
+/* market/leaderboard pagination row */
+.pagination-row {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+}
+
+/* =====================================================
+   MOBILE MEDIA QUERIES  ≤ 768px
+   ===================================================== */
+@media (max-width: 768px) {
+
+  /* Show the bottom hotbar */
+  .mobile-hotbar {
+    display: flex;
+  }
+
+  /* Hide the desktop nav-links (keep the brand visible via .navbar) */
+  .nav-links {
+    display: none !important;
+  }
+
+  /* Shrink the navbar to just brand bar */
+  .navbar {
+    justify-content: center !important;
+    padding: 0.75rem 1rem !important;
+  }
+
+  /* Remove left-absolute positioning of brand so it centres naturally */
+  .navbar .nav-brand {
+    position: static !important;
+    left: unset !important;
+    font-size: 1.25rem !important;
+  }
+
+  /* Body needs bottom padding so content isn't hidden behind the hotbar */
+  body {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Tighten container */
+  .container {
+    padding: 1rem;
+  }
+
+  /* Page surface */
+  .page-surface {
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  /* ── Item detail page ── */
+  .item-page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .item-page-header h1 {
+    font-size: 1.4rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .item-page-header > div:last-child {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .item-page-header .btn {
+    flex: 1;
+    font-size: 0.78rem;
+    padding: 0.4rem 0.6rem;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .item-main-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Compact image on mobile */
+  .item-image-box {
+    height: 200px !important;
+  }
+
+  .item-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .ownership-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Charts: allow horizontal scroll rather than overflow */
+  .item-charts-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Player profile ── */
+  .player-profile-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Chart appears below the avatar/stats card on mobile */
+  .player-chart-card {
+    order: 2;
+    min-height: 280px;
+  }
+
+  .player-avatar-card {
+    order: 1;
+  }
+
+  /* Trim avatar height on mobile */
+  .player-avatar-img {
+    height: 220px !important;
+    min-height: 220px !important;
+  }
+
+  /* Profile header card — stack username + buttons */
+  .player-page-header {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .player-page-header > div:last-child {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .player-page-header .btn {
+    flex: 1;
+    font-size: 0.78rem;
+    text-align: center;
+    justify-content: center;
+  }
+
+  /* ── Pagination ── */
+  .pagination-row {
+    justify-content: center;
+  }
+
+  /* Hide middle ellipsis pages on very small screens; keep prev/next */
+  .pagination-page-btn {
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.85rem;
+  }
+
+  /* ── Search modal ── */
+  /* The search modal is full-screen on mobile */
+  .search-modal-inner {
+    max-width: 100% !important;
+    max-height: 90vh !important;
+    border-radius: 12px 12px 0 0 !important;
+    margin: 0 !important;
+  }
+
+  .search-modal-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+  }
+
+  /* Market grid tighter on mobile */
+  .market-item-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Reduce h1 size globally */
+  h1 {
+    font-size: clamp(1.3rem, 5vw, 1.8rem);
+  }
+}
+
+/* Mobile Dropup Menus for Hotbar */
+.mobile-dropup-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 0.5rem 0;
+  z-index: 201;
+}
+
+.mobile-dropup-item {
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mobile-dropup-item:last-child {
+  border-bottom: none;
+}
+
+/* ── Extra small (phones < 480px) ── */
+@media (max-width: 480px) {
+  .container {
+    padding: 0.75rem;
+  }
+
+  .page-surface {
+    padding: 0.75rem;
+    border-radius: 6px;
+  }
+
+  .ownership-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .item-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
 }

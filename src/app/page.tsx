@@ -23,11 +23,11 @@ const QUICK_LINKS = [
     ),
   },
   {
-    href: '/deals',
-    label: 'Deals',
-    desc: 'Listings priced below RAP',
+    href: '/trade-ads',
+    label: 'Trade Ads',
+    desc: 'Find players to trade with',
     icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     ),
   },
   {
@@ -124,14 +124,14 @@ export default async function Home() {
           Know what your limiteds are actually worth.
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1.15rem', marginBottom: '2rem', maxWidth: '560px', margin: '0 auto 2.5rem auto', lineHeight: 1.6 }}>
-          <span style={{ color: '#e2b955', fontWeight: 700 }}>usbx</span><span style={{ color: '#8353e4', fontWeight: 700 }}>.</span><span style={{ fontWeight: 700 }}>trade</span> tracks live RAP, values, and market activity for every limited in untitled-sandbox, so you&apos;re not just guessing.
+          <span style={{ color: '#e2b955', fontWeight: 700 }}>usbx</span><span style={{ color: '#8353e4', fontWeight: 700 }}>.</span><span style={{ fontWeight: 700 }}>trade</span>{' '}tracks live RAP, values, and market activity for every limited in untitled-sandbox, so you&apos;re not just guessing.
         </p>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link href="/market" className="btn btn-primary" style={{ fontSize: '1rem', padding: '0.75rem 2rem' }}>
             Explore the Market
           </Link>
-          <Link href="/deals" className="btn btn-secondary" style={{ fontSize: '1rem', padding: '0.75rem 2rem' }}>
-            See Today&apos;s Deals
+          <Link href="/trade-ads" className="btn btn-secondary" style={{ fontSize: '1rem', padding: '0.75rem 2rem' }}>
+            View Trade Ads
           </Link>
         </div>
       </section>
@@ -182,11 +182,6 @@ export default async function Home() {
             {recentItems.map((item: any) => (
               <Link href={`/items/${item.id}`} key={item.id} className="card" style={{ display: 'block', textDecoration: 'none' }}>
                 <div style={{ position: 'relative', height: '200px', backgroundColor: 'var(--bg-tertiary)' }}>
-                  {item.is_limited && (
-                    <div style={{ position: 'absolute', top: '8px', left: '8px', backgroundColor: 'rgba(239, 68, 68, 0.2)', border: '1px solid #EF4444', color: '#EF4444', padding: '2px 6px', fontSize: '0.7rem', fontWeight: 'bold', borderRadius: '4px', zIndex: 10 }}>
-                      LIMITED
-                    </div>
-                  )}
 
                   <RarityBadge copies={item.copies_sold} />
 

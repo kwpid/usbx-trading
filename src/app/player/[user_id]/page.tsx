@@ -270,7 +270,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
       />
 
       {/* Page Header (Username) */}
-      <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="card player-page-header" style={{ padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
             {summary.user.username}
@@ -296,17 +296,17 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
       {/* Subtle Background Card for Profile Content */}
       <div className="page-surface fade-in">
         {/* Main Grid: Left Card (Avatar+Stats), Right Card (Chart) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'stretch' }}>
+        <div className="player-profile-grid">
 
           {/* Left Column (Avatar + Stats Card, plus bio) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="player-avatar-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             
             <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               {/* Top section: Avatar in dark block */}
               <div style={{ backgroundColor: '#18181b', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '380px' }}>
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt={summary.user.username} style={{ width: '100%', height: '380px', objectFit: 'contain' }} />
+                  <img src={avatarUrl} alt={summary.user.username} className="player-avatar-img" style={{ width: '100%', height: '380px', objectFit: 'contain' }} />
                 ) : (
                   <span style={{ color: 'var(--text-secondary)' }}>No Avatar</span>
                 )}
@@ -337,7 +337,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
           </div>
 
           {/* Right Column (Chart Card) */}
-          <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div className="card player-chart-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
             <PlayerChart history={historyData || []} />
           </div>
         </div>
