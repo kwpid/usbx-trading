@@ -159,7 +159,7 @@ export async function refreshItemPricing(itemId: string) {
   }
 
   if (!item.is_limited) {
-    return { error: "This item isn't limited — USBX doesn't track RAP/resale data for it, so there's nothing to refresh.", success: false };
+    return { error: "This item isn't limited. USBX doesn't track RAP/resale data for it, so there's nothing to refresh.", success: false };
   }
 
   const usbxItemId = extractUsbxItemId(item.source_url);

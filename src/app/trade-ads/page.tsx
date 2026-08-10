@@ -26,7 +26,7 @@ export default async function TradeAdsPage({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.4rem' }}>Trade Ads</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>Post what you have and what you want — other traders can reach out on USBX directly.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>Post what you have and what you want. Other traders can reach out on USBX directly.</p>
         </div>
         <Link href="/trade-ads/new" className="btn btn-primary">+ Post Trade Ad</Link>
       </div>

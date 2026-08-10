@@ -259,7 +259,7 @@ export default async function DealsPage(props: { searchParams: Promise<{ sort?: 
       {deals.length === 0 ? (
         <div className="card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
           {listingsTableMissing ? (
-            <>No listings synced yet — run &quot;Resync Deals&quot; in the Admin panel to pull the current marketplace.</>
+            <>No listings synced yet. Run &quot;Resync Deals&quot; in the Admin panel to pull the current marketplace.</>
           ) : (
             <>No active listings right now. The market worker picks up new listings automatically as they&apos;re posted.</>
           )}
@@ -306,7 +306,7 @@ export default async function DealsPage(props: { searchParams: Promise<{ sort?: 
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>RAP</span>
-                    <span>{deal.rap != null ? formatNumber(deal.rap) : '—'}</span>
+                    <span>{deal.rap != null ? formatNumber(deal.rap) : '-'}</span>
                   </div>
                   {deal.value != null && deal.value > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>

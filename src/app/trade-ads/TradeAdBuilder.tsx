@@ -360,7 +360,7 @@ export default function TradeAdBuilder({ initialCooldownMinutes = 0 }: { initial
 
       {onCooldown && (
         <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(226, 185, 85, 0.1)', border: '1px solid var(--rare-color)', color: 'var(--rare-color)', borderRadius: '6px' }}>
-          You can only post one trade ad every 30 minutes — you can post again in {initialCooldownMinutes} minute{initialCooldownMinutes === 1 ? '' : 's'}.
+          You can only post one trade ad every 30 minutes. You can post again in {initialCooldownMinutes} minute{initialCooldownMinutes === 1 ? '' : 's'}.
         </div>
       )}
 

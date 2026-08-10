@@ -35,7 +35,7 @@ export default function MaintenanceTogglePanel({ initialEnabled }: { initialEnab
           <h3 style={{ marginBottom: '0.35rem', fontSize: '1.1rem' }}>Maintenance Mode</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '480px' }}>
             When on, every visitor except signed-in admins sees a maintenance screen instead of
-            the site — nothing renders, nothing is browsable. You stay logged in and can keep
+            the site: nothing renders, nothing is browsable. You stay logged in and can keep
             working normally. The verification/login page always stays reachable so you can
             re-authenticate if your session ever expires.
           </p>
@@ -74,7 +74,7 @@ export default function MaintenanceTogglePanel({ initialEnabled }: { initialEnab
 
       {enabled && (
         <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid var(--danger-color)', color: 'var(--danger-color)', borderRadius: '6px', fontSize: '0.9rem' }}>
-          Maintenance mode is currently ON — the live site is hidden from everyone but admins.
+          Maintenance mode is currently ON. The live site is hidden from everyone but admins.
         </div>
       )}
 

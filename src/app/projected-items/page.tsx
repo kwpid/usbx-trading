@@ -43,7 +43,7 @@ export default async function ProjectedItemsPage() {
     <div>
       <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Projected Items</h1>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', maxWidth: '700px' }}>
-        Items whose RAP is sitting well above their assigned Value — usually a sign a small group
+        Items whose RAP is sitting well above their assigned Value, usually a sign a small group
         of traders is inflating the resale price rather than it reflecting real demand. Trading
         for one of these at RAP is likely to lose value fast. Flagged when RAP is at least{' '}
         {Math.round((PROJECTED_RATIO_THRESHOLD - 1) * 100)}% above Value.

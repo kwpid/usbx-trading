@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation';
 import CurrencyInput from '../../../admin/CurrencyInput';
 
 const TREND_INFO: Record<string, string> = {
-  Rising: 'Demand is outpacing supply — price is trending up.',
+  Rising: 'Demand is outpacing supply, price is trending up.',
   Stable: 'Holding steady, no clear direction either way.',
-  Falling: 'Supply is outpacing demand — price is trending down.',
+  Falling: 'Supply is outpacing demand, price is trending down.',
 };
 
 const DEMAND_INFO: Record<string, string> = {
@@ -66,7 +66,7 @@ export default function EditItemForm({ item, canEditBasic }: { item: any; canEdi
   const handleValueSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (valueData.reason.trim().length < MIN_REASON_LENGTH) {
-      setError(`Give a bit more detail in your reason (at least ${MIN_REASON_LENGTH} characters) — this gets posted publicly on the item's Value Changes history, so other traders should be able to see why this happened.`);
+      setError(`Give a bit more detail in your reason (at least ${MIN_REASON_LENGTH} characters). This gets posted publicly on the item's Value Changes history, so other traders should be able to see why this happened.`);
       return;
     }
 
@@ -199,7 +199,7 @@ export default function EditItemForm({ item, canEditBasic }: { item: any; canEdi
                 marginTop: '0.5rem', fontSize: '0.85rem', fontWeight: 600,
                 color: valueDelta > 0 ? 'var(--success-color)' : 'var(--danger-color)',
               }}>
-                {valueDelta > 0 ? '▲' : '▼'} {formatNumber(Math.abs(valueDelta))} ({valueDelta > 0 ? '+' : ''}{currentValue > 0 ? ((valueDelta / currentValue) * 100).toFixed(1) : '—'}%) from current value
+                {valueDelta > 0 ? '▲' : '▼'} {formatNumber(Math.abs(valueDelta))} ({valueDelta > 0 ? '+' : ''}{currentValue > 0 ? ((valueDelta / currentValue) * 100).toFixed(1) : 'n/a'}%) from current value
               </div>
             )}
           </div>
@@ -247,14 +247,14 @@ export default function EditItemForm({ item, canEditBasic }: { item: any; canEdi
               onChange={e => setValueData(prev => ({ ...prev, reason: e.target.value }))}
               className="input"
               style={{ minHeight: '90px' }}
-              placeholder="e.g. Recent resale prices have consistently dropped below current value after the newest limited release drew demand away — dropping to match."
+              placeholder="e.g. Recent resale prices have consistently dropped below current value after the newest limited release drew demand away, dropping to match."
               required
             ></textarea>
             <div style={{
               fontSize: '0.78rem', marginTop: '0.35rem',
               color: valueData.reason.trim().length < MIN_REASON_LENGTH ? 'var(--text-secondary)' : 'var(--success-color)',
             }}>
-              {valueData.reason.trim().length}/{MIN_REASON_LENGTH} characters minimum — this is shown publicly on the item&apos;s Value Changes history, so write it for other traders, not just yourself.
+              {valueData.reason.trim().length}/{MIN_REASON_LENGTH} characters minimum. This is shown publicly on the item&apos;s Value Changes history, so write it for other traders, not just yourself.
             </div>
           </div>
 

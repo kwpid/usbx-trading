@@ -21,7 +21,7 @@ export default function AdminPageClient() {
     setResults((prev) => ({
       ...prev,
       [key]: result.success
-        ? { ok: true, message: 'Sent — check the Discord channel.' }
+        ? { ok: true, message: 'Sent. Check the Discord channel.' }
         : { ok: false, message: result.error || 'Failed to send.' },
     }));
   };

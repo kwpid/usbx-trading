@@ -29,7 +29,7 @@ export default function BypassPrivacyToggle({ initialEnabled }: { initialEnabled
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
             There&apos;s a known bug on USBX where some accounts get stuck showing a private inventory even
             after switching the setting back to public. If that&apos;s happening to you, turning this on lets
-            usbx.trade show your limiteds (only limiteds — nothing else) on this site regardless of your live
+            usbx.trade show your limiteds (only limiteds, nothing else) on this site regardless of your live
             USBX privacy setting. Turn it back off any time.
           </p>
         </div>
@@ -62,7 +62,7 @@ export default function BypassPrivacyToggle({ initialEnabled }: { initialEnabled
       )}
 
       <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: enabled ? 'var(--success-color)' : 'var(--text-secondary)' }}>
-        {enabled ? 'On — your limiteds are visible on usbx.trade regardless of your USBX privacy setting.' : 'Off — your inventory follows your live USBX privacy setting, same as everyone else.'}
+        {enabled ? 'On: your limiteds are visible on usbx.trade regardless of your USBX privacy setting.' : 'Off: your inventory follows your live USBX privacy setting, same as everyone else.'}
       </div>
     </div>
   );

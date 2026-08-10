@@ -231,7 +231,7 @@ export default function SyncPlayersPanel() {
 
           {done && (
             <p style={{ color: 'var(--success-color)', margin: 0 }}>
-              ✓ Player sync complete — leaderboards and profile charts are now up to date.
+              ✓ Player sync complete. Leaderboards and profile charts are now up to date.
             </p>
           )}
         </div>

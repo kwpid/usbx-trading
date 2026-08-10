@@ -138,7 +138,7 @@ export default function ScrapeItemForm() {
               onChange={(e) => setForm({ ...form, is_limited: e.target.checked })}
             />
             <label htmlFor="is_limited" style={{ fontSize: '0.9rem', fontWeight: 500 }}>
-              Limited item {form.is_limited ? '(confirmed by USBX)' : '(USBX reports this as non-limited — double-check)'}
+              Limited item {form.is_limited ? '(confirmed by USBX)' : '(USBX reports this as non-limited, double-check)'}
             </label>
           </div>
 

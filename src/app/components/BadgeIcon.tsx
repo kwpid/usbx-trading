@@ -10,7 +10,7 @@ export default function BadgeIcon({ badge, size = 64 }: { badge: BadgeIconInfo; 
     <img
       src={badge.icon}
       alt={badge.name}
-      title={`${badge.name} — ${badge.description}`}
+      title={`${badge.name}: ${badge.description}`}
       style={{ width: size, height: size, flexShrink: 0, objectFit: 'contain' }}
     />
   );

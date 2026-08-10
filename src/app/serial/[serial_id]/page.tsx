@@ -131,7 +131,7 @@ export default async function SerialLifecyclePage(props: { params: Promise<{ ser
                       {event.eventType}
                     </span>
                     <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                      {timeAgo(event.createdAt)} — {new Date(event.createdAt).toLocaleString()}
+                      {timeAgo(event.createdAt)} ({new Date(event.createdAt).toLocaleString()})
                     </div>
                   </div>
                   {isLatest && <span style={{ color: 'var(--success-color)', fontWeight: 'bold', fontSize: '0.85rem' }}>CURRENT OWNER</span>}

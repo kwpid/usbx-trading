@@ -57,7 +57,7 @@ function CatalogSyncPanel() {
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
         Walks the entire USBX marketplace and saves non-clothing items. Fetches RAP &amp;
         owner counts for each item during sync. Uses the store listing ID (not item catalog
-        ID) for enrichment — so data should be accurate from the start.
+        ID) for enrichment, so data should be accurate from the start.
       </p>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -157,7 +157,7 @@ function RefreshAllItemsPanel() {
       <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem' }}>Refresh All Items Data</h3>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
         Re-fetches RAP, owner counts, and price data for every item already in the database.
-        Use this to backfill items that are missing data. Does not add new items — run
+        Use this to backfill items that are missing data. Does not add new items, run
         Catalog Sync for that.
       </p>
 

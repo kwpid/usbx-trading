@@ -224,7 +224,7 @@ export default function ProfileInventoryClient({ items, inventoryIsPrivate, nftI
   if (items.length === 0) {
     return (
       <div className="card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-        No inventory data available — this player may not have logged into USBX recently.
+        No inventory data available. This player may not have logged into USBX recently.
       </div>
     );
   }

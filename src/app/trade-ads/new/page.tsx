@@ -24,7 +24,7 @@ export default async function NewTradeAdPage() {
   if (!profile?.is_verified) {
     return (
       <div className="card" style={{ padding: '2rem', maxWidth: '500px', margin: '3rem auto', textAlign: 'center' }}>
-        <p style={{ marginBottom: '1rem' }}>You need a verified USBX account to post a trade ad — this lets us show your real inventory to offer from.</p>
+        <p style={{ marginBottom: '1rem' }}>You need a verified USBX account to post a trade ad. This lets us show your real inventory to offer from.</p>
         <Link href="/account" className="btn btn-primary">Verify Account</Link>
       </div>
     );

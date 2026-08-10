@@ -92,7 +92,7 @@ export default async function LeaderboardsPage({
       {/* Grid */}
       {rows.length === 0 ? (
         <div className="card" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)', marginTop: '1rem' }}>
-          No data yet — run a Player Sync from the admin panel to populate the leaderboard.
+          No data yet. Run a Player Sync from the admin panel to populate the leaderboard.
         </div>
       ) : (
         <div style={{

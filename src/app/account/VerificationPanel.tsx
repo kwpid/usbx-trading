@@ -57,7 +57,7 @@ export default function VerificationPanel() {
       // fall through to manual-copy hint below
     }
 
-    setError('Could not copy automatically — select the code above and copy it manually.');
+    setError('Could not copy automatically. Select the code above and copy it manually.');
   };
 
   const handleStart = async (e: React.FormEvent) => {

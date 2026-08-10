@@ -71,7 +71,7 @@ export async function completeVerification() {
 
   const pending = await getPendingVerification();
   if (!pending) {
-    return { error: 'Start verification first — the code expires after 10 minutes.' };
+    return { error: 'Start verification first. The code expires after 10 minutes.' };
   }
 
   let summary;
