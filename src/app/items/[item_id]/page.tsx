@@ -9,7 +9,34 @@ import ItemCharts from "./ItemCharts";
 import ItemDetailsTabs from "./ItemDetailsTabs";
 import OwnersList from "./OwnersList";
 
+import { Metadata } from "next";
+
 export const revalidate = 60;
+
+export async function generateMetadata(props: { params: Promise<{ item_id: string }> }): Promise<Metadata> {
+  const params = await props.params;
+  const { data: item } = await supabase.from('items').select('*').eq('id', params.item_id).single();
+  if (!item) return {};
+
+  const title = `${item.name} | usbx.trade`;
+  const desc = `RAP: ${formatNumber(item.rap)} | Value: ${formatNumber(item.value)} | Available: ${formatNumber(item.copies_sold)}`;
+
+  return {
+    title,
+    description: desc,
+    openGraph: {
+      title,
+      description: desc,
+      images: item.item_image_url ? [item.item_image_url] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: desc,
+      images: item.item_image_url ? [item.item_image_url] : [],
+    },
+  };
+}
 
 function formatNumber(num: number | null | undefined) {
   if (num === null || num === undefined) return '-';

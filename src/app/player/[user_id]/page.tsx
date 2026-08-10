@@ -14,8 +14,35 @@ import BadgeIcon from "@/app/components/BadgeIcon";
 import { getInlineBadge } from "@/lib/inlineBadge";
 import { BADGES_BY_ID } from "@/lib/badges";
 import { SnapshotItem } from "@/lib/snapshot";
+import { Metadata } from "next";
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata(props: { params: Promise<{ user_id: string }> }): Promise<Metadata> {
+  const params = await props.params;
+  try {
+    const summary = await fetchProfileSummary(params.user_id);
+    const title = `${summary.user.username}'s Profile | usbx.trade`;
+    const description = `View ${summary.user.username}'s limiteds, net worth, and trade history on usbx.trade.`;
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        images: summary.user.avatarUrl ? [summary.user.avatarUrl] : [],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: summary.user.avatarUrl ? [summary.user.avatarUrl] : [],
+      }
+    };
+  } catch (err) {
+    return { title: 'Player Profile | usbx.trade' };
+  }
+}
 
 function formatNumber(num: number | null | undefined) {
   if (num === null || num === undefined) return '-';
