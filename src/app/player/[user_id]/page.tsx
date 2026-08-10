@@ -67,7 +67,19 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   // inventory fetch and catching a 403. Explicitly false = private; missing
   // (some API versions may not send it) defaults to public rather than
   // hiding a profile that's actually visible.
-  const inventoryIsPrivate = summary.privacy?.canViewInventory === false;
+  const liveInventoryIsPrivate = summary.privacy?.canViewInventory === false;
+
+  // A player can opt into showing their inventory on usbx.trade regardless
+  // of their live USBX privacy setting (Account Settings), as a failsafe
+  // for a known USBX bug that can get an account stuck on private. This is
+  // the account's own choice about their own data — never a way to see
+  // someone else's private inventory without their consent.
+  const { data: privacySettings } = await supabase
+    .from('profiles')
+    .select('bypass_privacy_lock')
+    .eq('usbx_user_id', userId)
+    .maybeSingle();
+  const inventoryIsPrivate = liveInventoryIsPrivate && !privacySettings?.bypass_privacy_lock;
 
   // Ownership comes straight from our own item_owners table — populated by
   // the background sync jobs (event poller, catalog discovery, daily
@@ -268,9 +280,16 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
           </h1>
           <div style={{ color: 'var(--accent-color)', fontSize: '1rem' }}>USBX Player Profile</div>
         </div>
-        <Link href={`/playertrades/${userId}`} className="btn btn-primary" style={{ borderRadius: '999px', padding: '0.5rem 1.1rem', fontSize: '0.85rem', textDecoration: 'none' }}>
-          Trade Ads
-        </Link>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {isOwnProfile && (
+            <Link href="/account/settings" className="btn btn-secondary" style={{ borderRadius: '999px', padding: '0.5rem 1.1rem', fontSize: '0.85rem', textDecoration: 'none' }}>
+              Settings
+            </Link>
+          )}
+          <Link href={`/playertrades/${userId}`} className="btn btn-primary" style={{ borderRadius: '999px', padding: '0.5rem 1.1rem', fontSize: '0.85rem', textDecoration: 'none' }}>
+            Trade Ads
+          </Link>
+        </div>
       </div>
 
       {/* Subtle Background Card for Profile Content */}

@@ -5,15 +5,24 @@ const RAP_WEBHOOK_URL = process.env.DISCORD_RAP_WEBHOOK_URL;
 const SALES_WEBHOOK_URL = process.env.DISCORD_SALES_WEBHOOK_URL;
 const DEALS_WEBHOOK_URL = process.env.DISCORD_DEALS_WEBHOOK_URL;
 
-async function postEmbed(url: string, embed: Record<string, unknown>) {
+export type WebhookResult = { sent: boolean; error?: string };
+
+async function postEmbed(url: string, embed: Record<string, unknown>): Promise<WebhookResult> {
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ embeds: [embed] }),
     });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(`Discord webhook rejected (${res.status}): ${body}`);
+      return { sent: false, error: `Discord returned ${res.status}${body ? `: ${body}` : ''}` };
+    }
+    return { sent: true };
   } catch (err) {
     console.error('Failed to send Discord webhook:', err);
+    return { sent: false, error: err instanceof Error ? err.message : 'Network error' };
   }
 }
 
@@ -25,14 +34,14 @@ export async function sendRapUpdateWebhook(opts: {
   newRap: number;
   salePrice?: number | null;
   totalSales?: number | null;
-}) {
-  if (!RAP_WEBHOOK_URL) return;
+}): Promise<WebhookResult> {
+  if (!RAP_WEBHOOK_URL) return { sent: false, error: 'DISCORD_RAP_WEBHOOK_URL is not set.' };
 
   const diff = opts.newRap - opts.oldRap;
-  const pctChange = opts.oldRap > 0 ? ((diff / opts.oldRap) * 100).toFixed(1) : '—';
+  const pctChange = opts.oldRap > 0 ? ((diff / opts.oldRap) * 100).toFixed(1) : 'n/a';
   const direction = diff >= 0 ? '📈' : '📉';
 
-  await postEmbed(RAP_WEBHOOK_URL, {
+  return postEmbed(RAP_WEBHOOK_URL, {
     title: `${direction} RAP Update: ${opts.itemName}`,
     url: `https://usbx.trade/items/${opts.itemId}`,
     color: diff >= 0 ? 0x22c55e : 0xef4444,
@@ -64,15 +73,15 @@ export async function sendRecentSaleWebhook(opts: {
   sellerUsername?: string | null;
   sellerId?: number | null;
   saleType?: string;
-}) {
-  if (!SALES_WEBHOOK_URL) return;
+}): Promise<WebhookResult> {
+  if (!SALES_WEBHOOK_URL) return { sent: false, error: 'DISCORD_SALES_WEBHOOK_URL is not set.' };
 
   const discount =
     opts.rap != null && opts.rap > 0
       ? (((opts.rap - opts.price) / opts.rap) * 100).toFixed(1)
       : null;
 
-  await postEmbed(SALES_WEBHOOK_URL, {
+  return postEmbed(SALES_WEBHOOK_URL, {
     title: `💰 Recent Sale: ${opts.itemName}`,
     url: `https://usbx.trade/items/${opts.itemId}`,
     color: 0xf59e0b,
@@ -106,10 +115,10 @@ export async function sendDealWebhook(opts: {
   discountPct: number;
   storeName?: string | null;
   sellerUsername?: string | null;
-}) {
-  if (!DEALS_WEBHOOK_URL) return;
+}): Promise<WebhookResult> {
+  if (!DEALS_WEBHOOK_URL) return { sent: false, error: 'DISCORD_DEALS_WEBHOOK_URL is not set.' };
 
-  await postEmbed(DEALS_WEBHOOK_URL, {
+  return postEmbed(DEALS_WEBHOOK_URL, {
     title: `🔥 New Deal: ${opts.itemName}`,
     url: `https://usbx.trade/items/${opts.itemId}`,
     color: 0x22c55e,

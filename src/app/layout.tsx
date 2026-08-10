@@ -10,6 +10,11 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "usbx.trade | Trading & Items",
   description: "Track and trade exclusive items",
+  icons: {
+    icon: "/bg-pattern.png",
+    shortcut: "/bg-pattern.png",
+    apple: "/bg-pattern.png",
+  },
 };
 
 export default function RootLayout({

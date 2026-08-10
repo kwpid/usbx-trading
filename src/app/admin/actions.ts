@@ -3,7 +3,48 @@
 import { supabase } from '@/lib/supabase';
 import { requireAdmin, requireEditor } from '@/lib/roles';
 import { fetchItemFullDetails, extractUsbxItemId } from '@/lib/usbxApi';
+import { sendRapUpdateWebhook, sendRecentSaleWebhook } from '@/lib/discordWebhooks';
 import { revalidatePath } from 'next/cache';
+
+// Fires a dummy embed through the real sender functions so an admin can
+// confirm DISCORD_RAP_WEBHOOK_URL / DISCORD_SALES_WEBHOOK_URL are actually
+// set and accepted by Discord, without waiting for a real RAP change or
+// sale to happen to find out.
+export async function testRapWebhook() {
+  if (!(await requireAdmin())) return { error: 'Admins only.', success: false };
+
+  const result = await sendRapUpdateWebhook({
+    itemId: 0,
+    itemName: 'Test Item',
+    imageUrl: null,
+    oldRap: 1000,
+    newRap: 1200,
+    salePrice: 1150,
+    totalSales: 42,
+  });
+
+  return result.sent ? { success: true } : { error: result.error || 'Failed to send.', success: false };
+}
+
+export async function testSalesWebhook() {
+  if (!(await requireAdmin())) return { error: 'Admins only.', success: false };
+
+  const result = await sendRecentSaleWebhook({
+    itemId: 0,
+    itemName: 'Test Item',
+    imageUrl: null,
+    price: 1150,
+    rap: 1200,
+    serialNumber: '0001',
+    buyerUsername: 'TestBuyer',
+    buyerId: 0,
+    sellerUsername: 'TestSeller',
+    sellerId: 0,
+    saleType: 'RESALE_PURCHASED',
+  });
+
+  return result.sent ? { success: true } : { error: result.error || 'Failed to send.', success: false };
+}
 
 // Site-wide maintenance mode — gated in proxy.ts for every non-admin visitor,
 // toggled here so it doesn't require a redeploy to flip on/off.
