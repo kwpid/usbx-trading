@@ -229,9 +229,11 @@ export async function updateItemAction(itemId: string, updates: any) {
 }
 
 export async function updateItemValueAction(itemId: string, data: { value: number, trend: string, demand: string, reason: string }) {
-  if (!(await requireEditor())) {
+  const editor = await requireEditor();
+  if (!editor) {
     return { error: 'Admins and value editors only.', success: false };
   }
+  const editorUsername = editor.username || `User #${editor.usbxUserId}`;
 
   try {
     // 1. Fetch current item state
@@ -335,6 +337,8 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
     // Discord Webhook
     const embeds = [];
 
+    const editorFooter = { text: `Updated by ${editorUsername}` };
+
     if (updates.value !== undefined) {
       embeds.push({
         title: `Value Update: ${item.name}`,
@@ -345,7 +349,8 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
           { name: 'Old Value', value: String(item.value || 0), inline: true },
           { name: 'New Value', value: String(updates.value), inline: true },
           { name: 'Reason', value: data.reason || 'No reason provided.' }
-        ]
+        ],
+        footer: editorFooter,
       });
     }
 
@@ -359,7 +364,8 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
           { name: 'Old Trend', value: item.trend || 'Stable', inline: true },
           { name: 'New Trend', value: updates.trend, inline: true },
           { name: 'Reason', value: data.reason || 'No reason provided.' }
-        ]
+        ],
+        footer: editorFooter,
       });
     }
 
@@ -373,7 +379,8 @@ export async function updateItemValueAction(itemId: string, data: { value: numbe
           { name: 'Old Demand', value: item.demand || 'Normal', inline: true },
           { name: 'New Demand', value: updates.demand, inline: true },
           { name: 'Reason', value: data.reason || 'No reason provided.' }
-        ]
+        ],
+        footer: editorFooter,
       });
     }
     
