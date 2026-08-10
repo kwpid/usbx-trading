@@ -363,3 +363,28 @@ export async function fetchPublicEvents(params: { eventTypes: string[]; limit?: 
   const json = await usbxGetRaw(`/api/public-index/events?${qs.toString()}`);
   return json.data?.items ?? [];
 }
+
+export type UsbxRapLeaderboardEntry = {
+  rank: number;
+  userId: number;
+  username: string;
+  headshotUrl: string | null;
+  rapFreemium: number;
+  limitedItemCount: number;
+};
+
+// Used by the admin player-sync route. Routed through usbxGetRaw like
+// everything else — this used to be a raw unproxied fetch() straight to
+// USBX, which Vercel's IP range gets Cloudflare-blocked on (an HTML
+// challenge page back instead of JSON, surfacing as a JSON.parse error).
+export async function fetchRapLeaderboard(take: number, cursor?: number): Promise<{ entries: UsbxRapLeaderboardEntry[]; nextCursor: number | null }> {
+  const qs = new URLSearchParams();
+  qs.set('type', 'rap');
+  qs.set('take', String(take));
+  if (cursor !== undefined) qs.set('cursor', String(cursor));
+  const json = await usbxGetRaw(`/api/leaderboards/?${qs.toString()}`);
+  return {
+    entries: json.data?.entries ?? [],
+    nextCursor: json.data?.nextCursor ?? null,
+  };
+}

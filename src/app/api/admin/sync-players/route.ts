@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/roles';
-import { fetchAllProfileInventory, UsbxApiError } from '@/lib/usbxApi';
+import { fetchAllProfileInventory, fetchRapLeaderboard, UsbxApiError, UsbxRapLeaderboardEntry } from '@/lib/usbxApi';
 import { resolveUsbxAssetUrl } from '@/lib/usbxAssets';
 import { BADGES, BadgeCollectible } from '@/lib/badges';
 import { SnapshotItem } from '@/lib/snapshot';
@@ -9,7 +9,6 @@ import { SnapshotItem } from '@/lib/snapshot';
 // Admin-triggered sync always force-writes snapshots — no cooldown.
 // The 6-hour cooldown only applies to lazy profile-visit snapshots in page.tsx.
 
-const USBX_ORIGIN = 'https://beta.untitled-sandbox.com';
 const BATCH_SIZE = 10; // how many players to enrich per API call to this route
 
 // Sync strategy:
@@ -34,30 +33,16 @@ export async function GET(request: NextRequest) {
   const cursor = cursorParam ? parseInt(cursorParam, 10) : undefined;
 
   // ── 1. Fetch a batch from the USBX RAP leaderboard ────────────────────────
-  const lbUrl = new URL(`${USBX_ORIGIN}/api/leaderboards/`);
-  lbUrl.searchParams.set('type', 'rap');
-  lbUrl.searchParams.set('take', String(BATCH_SIZE));
-  if (cursor !== undefined) lbUrl.searchParams.set('cursor', String(cursor));
-
-  let lbJson: any;
+  let entries: UsbxRapLeaderboardEntry[];
+  let nextCursor: number | null;
   try {
-    const res = await fetch(lbUrl.toString(), { cache: 'no-store' });
-    lbJson = await res.json();
-    if (lbJson.status !== 'success') throw new Error('Bad leaderboard response');
+    const result = await fetchRapLeaderboard(BATCH_SIZE, cursor);
+    entries = result.entries;
+    nextCursor = result.nextCursor;
   } catch (err: any) {
     return NextResponse.json({ error: `Leaderboard fetch failed: ${err.message}` }, { status: 502 });
   }
 
-  const entries: {
-    rank: number;
-    userId: number;
-    username: string;
-    headshotUrl: string | null;
-    rapFreemium: number; // RAP in scrips
-    limitedItemCount: number;
-  }[] = lbJson.data?.entries ?? [];
-
-  const nextCursor: number | null = lbJson.data?.nextCursor ?? null;
   const totalOnLeaderboard: number | null = null; // USBX doesn't expose a total count
 
   // ── 2. Load our item catalog once for this batch ───────────────────────────
