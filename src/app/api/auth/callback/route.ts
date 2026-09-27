@@ -45,8 +45,12 @@ export async function GET(request: NextRequest) {
     await createSession(usbxUserId);
     revalidatePath('/account');
   } catch (err) {
-    console.error('OAuth callback failed:', err instanceof Error ? err.message : err);
-    return NextResponse.redirect(new URL('/account?error=oauth_failed', request.url));
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error('OAuth callback failed:', detail);
+    const url = new URL('/account', request.url);
+    url.searchParams.set('error', 'oauth_failed');
+    url.searchParams.set('detail', detail.slice(0, 200));
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.redirect(new URL('/account', request.url));

@@ -9,7 +9,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Sign-in was cancelled.',
 };
 
-export default async function AccountPage(props: { searchParams: Promise<{ error?: string }> }) {
+export default async function AccountPage(props: { searchParams: Promise<{ error?: string; detail?: string }> }) {
   const session = await getSession();
 
   if (session) {
@@ -31,6 +31,11 @@ export default async function AccountPage(props: { searchParams: Promise<{ error
       {errorMessage && (
         <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', color: 'var(--danger-color)', borderRadius: '6px', fontSize: '0.9rem' }}>
           {errorMessage}
+          {searchParams.detail && (
+            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', opacity: 0.8, fontFamily: 'monospace' }}>
+              {searchParams.detail}
+            </div>
+          )}
         </div>
       )}
 
