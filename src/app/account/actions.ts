@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import crypto from 'crypto';
 
-const USBX_PROFILE_URL_REGEX = /^https:\/\/beta\.untitled-sandbox\.com\/user\/profile\/(\d+)\/?$/;
+const USBX_PROFILE_URL_REGEX = /^https:\/\/untitled-sandbox\.com\/user\/profile\/(\d+)\/?$/;
 
 // Verification proves ownership by checking the profile's `bio` field
 // specifically — only the account holder can edit that, unlike wall
@@ -27,7 +27,7 @@ export async function startVerification(profileUrl: string, honeypot?: string) {
 
   const match = profileUrl.trim().match(USBX_PROFILE_URL_REGEX);
   if (!match) {
-    return { error: 'That doesn\'t look like a valid USBX profile URL. It should look like https://beta.untitled-sandbox.com/user/profile/15' };
+    return { error: 'That doesn\'t look like a valid USBX profile URL. It should look like https://untitled-sandbox.com/user/profile/15' };
   }
   const usbxUserId = parseInt(match[1], 10);
 

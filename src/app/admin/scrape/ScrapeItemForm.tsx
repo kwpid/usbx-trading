@@ -77,7 +77,7 @@ export default function ScrapeItemForm() {
         <input
           type="url"
           className="input"
-          placeholder="https://beta.untitled-sandbox.com/marketplace/547"
+          placeholder="https://untitled-sandbox.com/marketplace/547"
           value={link}
           onChange={(e) => setLink(e.target.value)}
           required

@@ -152,7 +152,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   const inlineBadge = await getInlineBadge(userId);
 
   const avatarUrl = resolveUsbxAssetUrl(summary.user.profile.avatarUrl || summary.user.profile.headshotUrl);
-  const usbxProfileUrl = `https://beta.untitled-sandbox.com/user/profile/${userId}`;
+  const usbxProfileUrl = `https://untitled-sandbox.com/user/profile/${userId}`;
 
   let rank: number | null = null;
   const { data: leaderData } = await supabase.rpc('get_latest_player_snapshots');

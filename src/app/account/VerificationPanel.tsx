@@ -105,8 +105,8 @@ export default function VerificationPanel() {
 
         <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>
           Paste this phrase into your description at{' '}
-          <a href="https://beta.untitled-sandbox.com/user/settings" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>
-            beta.untitled-sandbox.com/user/settings
+          <a href="https://untitled-sandbox.com/user/settings" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>
+            untitled-sandbox.com/user/settings
           </a>:
         </p>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
@@ -143,7 +143,7 @@ export default function VerificationPanel() {
           <input
             type="url"
             className="input"
-            placeholder="https://beta.untitled-sandbox.com/user/profile/15"
+            placeholder="https://untitled-sandbox.com/user/profile/15"
             value={profileUrl}
             onChange={(e) => setProfileUrl(e.target.value)}
             required

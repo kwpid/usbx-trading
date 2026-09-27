@@ -27,7 +27,7 @@ export default async function PlayerTradeAdsPage(props: {
 
   const username = profile?.usbx_username || `Player #${userId}`;
   const avatarUrl = profile?.usbx_avatar_url || null;
-  const usbxProfileUrl = `https://beta.untitled-sandbox.com/user/profile/${userId}`;
+  const usbxProfileUrl = `https://untitled-sandbox.com/user/profile/${userId}`;
   const isOwner = session?.usbxUserId === userId;
   const initialStatus: 'open' | 'closed' = searchParams.tab === 'history' ? 'closed' : 'open';
 

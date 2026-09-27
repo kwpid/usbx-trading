@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
           price_best_resale: listingPriceScrips,
           rap: rapScrips,
           total_sales: rapData?.totalSales ?? null,
-          source_url: `https://beta.untitled-sandbox.com/marketplace/${itemId}`,
+          source_url: `https://untitled-sandbox.com/marketplace/${itemId}`,
           data_refreshed_at: new Date().toISOString(),
         },
         { onConflict: 'id' }

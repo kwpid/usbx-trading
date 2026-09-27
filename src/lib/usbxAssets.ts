@@ -3,7 +3,7 @@
 // headshot.png" (default placeholder). Rendering the relative form directly
 // resolves against OUR origin and 404s. No 'server-only' here — this needs
 // to run in client components too (search results, etc.).
-const USBX_ORIGIN = 'https://beta.untitled-sandbox.com';
+const USBX_ORIGIN = 'https://untitled-sandbox.com';
 
 export function resolveUsbxAssetUrl(url: string | null | undefined): string | null {
   if (!url) return null;

@@ -1,9 +1,9 @@
 import 'server-only';
 import { tokensToScrips } from '@/lib/currency';
 
-const USBX_ORIGIN = 'https://beta.untitled-sandbox.com';
+const USBX_ORIGIN = 'https://untitled-sandbox.com';
 
-export const USBX_ITEM_URL_REGEX = /^https:\/\/beta\.untitled-sandbox\.com\/(?:marketplace|items?)\/(\d+)\/?$/i;
+export const USBX_ITEM_URL_REGEX = /^https:\/\/untitled-sandbox\.com\/(?:marketplace|items?)\/(\d+)\/?$/i;
 
 export function extractUsbxItemId(url: string): string | null {
   return url.trim().match(USBX_ITEM_URL_REGEX)?.[1] ?? null;
