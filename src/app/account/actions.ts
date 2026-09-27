@@ -1,10 +1,10 @@
 'use server'
 
-import { supabase } from '@/lib/supabase';
 import { createSession, deleteSession, createPendingVerification, getPendingVerification, clearPendingVerification } from '@/lib/session';
 import { fetchProfileSummary } from '@/lib/usbxApi';
 import { resolveUsbxAssetUrl } from '@/lib/usbxAssets';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { finalizeVerifiedAccount } from '@/lib/verifiedAccount';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import crypto from 'crypto';
@@ -77,38 +77,9 @@ export async function completeVerification() {
   const username = summary.user.username || null;
   const avatarUrl = resolveUsbxAssetUrl(summary.user.profile.headshotUrl || summary.user.profile.avatarUrl);
 
-  // is_verified is only ever set true here — the leaderboard sync job also
-  // upserts this row but never touches is_verified.
-  const { error: upsertError } = await supabase
-    .from('profiles')
-    .upsert(
-      {
-        usbx_user_id: pending.usbxUserId,
-        usbx_username: username,
-        usbx_avatar_url: avatarUrl,
-        last_login_at: new Date().toISOString(),
-        is_verified: true,
-      },
-      { onConflict: 'usbx_user_id' }
-    );
-
-  if (upsertError) {
-    return { error: upsertError.message };
-  }
-
-  // No unique constraint on player_badges, so check first to avoid a
-  // duplicate row on re-verification.
-  const { data: existingBadge } = await supabase
-    .from('player_badges')
-    .select('badge_id')
-    .eq('usbx_user_id', pending.usbxUserId)
-    .eq('badge_id', 'verified')
-    .maybeSingle();
-  if (!existingBadge) {
-    const { error: badgeError } = await supabase
-      .from('player_badges')
-      .insert({ usbx_user_id: pending.usbxUserId, badge_id: 'verified' });
-    if (badgeError) console.error('Failed to award verified badge:', badgeError.message);
+  const result = await finalizeVerifiedAccount(pending.usbxUserId, username, avatarUrl);
+  if ('error' in result) {
+    return { error: result.error };
   }
 
   await clearPendingVerification();

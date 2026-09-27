@@ -11,6 +11,9 @@ const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PENDING_COOKIE = 'usbx_pending_verification';
 const PENDING_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
+const OAUTH_STATE_COOKIE = 'usbx_oauth_state';
+const OAUTH_STATE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
 type SessionPayload = {
   usbxUserId: number;
 };
@@ -18,6 +21,12 @@ type SessionPayload = {
 type PendingPayload = {
   usbxUserId: number;
   code: string;
+};
+
+type OAuthStatePayload = {
+  state: string;
+  codeVerifier: string;
+  redirectUri: string;
 };
 
 export async function createSession(usbxUserId: number) {
@@ -92,4 +101,42 @@ export async function getPendingVerification(): Promise<PendingPayload | null> {
 export async function clearPendingVerification() {
   const cookieStore = await cookies();
   cookieStore.delete(PENDING_COOKIE);
+}
+
+// Holds the PKCE verifier + anti-CSRF state between the redirect out to
+// USBX's authorize page and the callback coming back.
+export async function createOAuthState(payload: OAuthStatePayload) {
+  const expiresAt = new Date(Date.now() + OAUTH_STATE_DURATION_MS);
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(expiresAt)
+    .sign(encodedKey);
+
+  const cookieStore = await cookies();
+  cookieStore.set(OAUTH_STATE_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    expires: expiresAt,
+    sameSite: 'lax',
+    path: '/',
+  });
+}
+
+export async function getOAuthState(): Promise<OAuthStatePayload | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(OAUTH_STATE_COOKIE)?.value;
+  if (!token) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, encodedKey, { algorithms: ['HS256'] });
+    return payload as unknown as OAuthStatePayload;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearOAuthState() {
+  const cookieStore = await cookies();
+  cookieStore.delete(OAUTH_STATE_COOKIE);
 }

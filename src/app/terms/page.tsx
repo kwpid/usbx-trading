@@ -43,14 +43,15 @@ export default function TermsPage() {
 
         <Section title="3. Account linking and verification">
           <p>
-            Creating an account on usbx.trade links your session to a USBX profile you prove ownership of by
-            placing a one-time code in that profile&apos;s bio. Completing verification confirms the linked
-            USBX profile is yours, and means you agree to us storing your USBX user ID, username, and avatar
-            URL to run the site (showing your profile, wishlist, and inventory pages).
+            Creating an account on usbx.trade links your session to a USBX profile. The normal way is signing
+            in with your Untitled Sandbox account through USBX&apos;s own sign-in page, which only shares your
+            USBX user ID, username, and avatar with us, nothing else. If sign-in isn&apos;t working, there&apos;s
+            a manual fallback: proving ownership by placing a one-time code in that profile&apos;s bio.
           </p>
           <p>
-            We don&apos;t collect passwords, email addresses, or payment information. There&apos;s nothing to
-            enter on usbx.trade beyond the verification code itself.
+            Either way, completing verification means you agree to us storing your USBX user ID, username, and
+            avatar URL to run the site (showing your profile, wishlist, and inventory pages). We don&apos;t
+            collect passwords, email addresses, or payment information.
           </p>
         </Section>
 
