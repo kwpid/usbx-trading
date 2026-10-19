@@ -4,7 +4,7 @@ import VerificationPanel from './VerificationPanel';
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_state: 'That sign-in attempt expired or was tampered with. Please try again.',
-  oauth_failed: 'Untitled Sandbox sign-in failed. Please try again, or verify manually below.',
+  oauth_failed: 'Untitled Sandbox sign-in failed. Use the bio code verification below instead.',
   rate_limited: 'Too many sign-in attempts. Please wait a few minutes and try again.',
   access_denied: 'Sign-in was cancelled.',
 };
@@ -25,7 +25,7 @@ export default async function AccountPage(props: { searchParams: Promise<{ error
     <div className="card" style={{ padding: '2rem', maxWidth: '500px', margin: '3rem auto' }}>
       <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Sign in to usbx.trade</h1>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-        Sign in with your Untitled Sandbox account to link your profile, no code to paste anywhere.
+        Link your Untitled Sandbox profile by placing a one-time code in your bio, then verifying it below.
       </p>
 
       {errorMessage && (
@@ -39,23 +39,24 @@ export default async function AccountPage(props: { searchParams: Promise<{ error
         </div>
       )}
 
-      <a
-        href="/api/auth/login"
-        className="btn btn-primary"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '0.85rem', fontSize: '1rem', textDecoration: 'none' }}
-      >
-        Sign in with Untitled Sandbox
-      </a>
-      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.75rem' }}>
-        By signing in, you agree to our <a href="/terms" style={{ color: 'var(--accent-color)' }}>Terms of Service</a>.
-      </p>
+      <VerificationPanel />
 
       <details style={{ marginTop: '1.75rem' }}>
         <summary style={{ cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-          Having trouble? Verify manually instead
+          Try signing in with Untitled Sandbox instead
         </summary>
         <div style={{ marginTop: '1rem' }}>
-          <VerificationPanel />
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+            This sign-in method is currently unreliable due to an issue on USBX&apos;s end, use the bio code
+            above if it fails.
+          </p>
+          <a
+            href="/api/auth/login"
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '0.85rem', fontSize: '1rem', textDecoration: 'none' }}
+          >
+            Sign in with Untitled Sandbox
+          </a>
         </div>
       </details>
     </div>
