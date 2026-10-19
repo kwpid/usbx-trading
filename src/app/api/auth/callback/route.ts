@@ -45,8 +45,13 @@ export async function GET(request: NextRequest) {
     await createSession(usbxUserId);
     revalidatePath('/account');
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error('OAuth callback failed:', detail);
+    // fetch() failures throw a generic "fetch failed" TypeError whose real
+    // cause (DNS, connection refused, timeout) lives on `.cause`, not
+    // `.message` — surface it so this doesn't show up as an unhelpful
+    // one-liner again.
+    const cause = err instanceof Error && err.cause instanceof Error ? `: ${err.cause.message}` : '';
+    const detail = (err instanceof Error ? err.message : String(err)) + cause;
+    console.error('OAuth callback failed:', detail, err);
     const url = new URL('/account', request.url);
     url.searchParams.set('error', 'oauth_failed');
     url.searchParams.set('detail', detail.slice(0, 200));
