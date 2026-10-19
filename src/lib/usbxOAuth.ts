@@ -1,13 +1,20 @@
 import 'server-only';
 import crypto from 'crypto';
+import { resolveUsbxRequest } from '@/lib/usbxApi';
 
 const OAUTH_ORIGIN = 'https://untitled-sandbox.com';
+// This one's a real browser navigation (the user's own browser hitting
+// USBX directly), not a server-side fetch from Vercel — no proxy needed.
 const AUTHORIZE_URL = `${OAUTH_ORIGIN}/oauth/authorize`;
-const TOKEN_URL = `${OAUTH_ORIGIN}/api/oauth/token`;
+// These two ARE server-side fetches from our route handlers, so they go
+// through resolveUsbxRequest like every other USBX call in this app —
+// Vercel's IP range gets Cloudflare-blocked otherwise (an HTML challenge
+// page back instead of JSON).
+const TOKEN_PATH = '/api/oauth/token';
 // Not /api/oauth/userinfo — that path returns a plain-text cookie-session
 // error ("You are not logged in") instead of a proper OAuth bearer-token
 // response. /api/v1/userinfo is the one that actually follows the spec.
-const USERINFO_URL = `${OAUTH_ORIGIN}/api/v1/userinfo`;
+const USERINFO_PATH = '/api/v1/userinfo';
 
 // Public client (PKCE, no client secret) — this app was registered without
 // one, and the token endpoint accepts client_id in the body for that case.
@@ -54,9 +61,10 @@ export async function exchangeCodeForToken(opts: {
   redirectUri: string;
   codeVerifier: string;
 }): Promise<TokenResponse> {
-  const res = await fetch(TOKEN_URL, {
+  const { url, headers } = resolveUsbxRequest(TOKEN_PATH);
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'authorization_code',
       code: opts.code,
@@ -67,7 +75,13 @@ export async function exchangeCodeForToken(opts: {
     cache: 'no-store',
   });
 
-  const json = await res.json();
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new UsbxOAuthError(`Non-JSON response from token endpoint (${res.status}): ${text.slice(0, 200)}`);
+  }
   if (!res.ok) {
     throw new UsbxOAuthError(json?.error_description || json?.error || 'Token exchange failed.');
   }
@@ -83,12 +97,19 @@ export type UsbxUserinfo = {
 };
 
 export async function fetchOAuthUserinfo(accessToken: string): Promise<UsbxUserinfo> {
-  const res = await fetch(USERINFO_URL, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  const { url, headers } = resolveUsbxRequest(USERINFO_PATH);
+  const res = await fetch(url, {
+    headers: { ...headers, Authorization: `Bearer ${accessToken}` },
     cache: 'no-store',
   });
 
-  const json = await res.json();
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new UsbxOAuthError(`Non-JSON response from userinfo endpoint (${res.status}): ${text.slice(0, 200)}`);
+  }
   if (!res.ok) {
     throw new UsbxOAuthError(json?.error_description || json?.error || 'Could not fetch userinfo.');
   }

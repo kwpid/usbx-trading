@@ -23,7 +23,10 @@ const BATCH_SIZE = 10; // how many players to enrich per API call to this route
 //     display their username/avatar without a separate lookup.
 
 export async function GET(request: NextRequest) {
-  if (!(await requireAdmin())) {
+  const secret = request.nextUrl.searchParams.get('secret');
+  const secretOk = Boolean(secret) && secret === process.env.REFRESH_PRICES_SECRET;
+
+  if (!secretOk && !(await requireAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

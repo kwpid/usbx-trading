@@ -22,7 +22,7 @@ export class UsbxApiError extends Error {
 // protection. When USBX_PROXY_URL is set, route through a Cloudflare
 // Worker instead (usbx-trading-api.tnivens73.workers.dev); falls back to
 // hitting USBX directly when unset (local dev).
-function resolveUsbxRequest(path: string): { url: string; headers: Record<string, string> } {
+export function resolveUsbxRequest(path: string): { url: string; headers: Record<string, string> } {
   const proxyUrlRaw = process.env.USBX_PROXY_URL;
   if (proxyUrlRaw) {
     const proxyUrl = /^https?:\/\//i.test(proxyUrlRaw) ? proxyUrlRaw : `https://${proxyUrlRaw}`;

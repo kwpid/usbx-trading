@@ -9,11 +9,15 @@ name: Full Site Sync
 #   - snapshot-players: daily fallback so every tracked player gets at
 #     least one portfolio history point per day, even with zero profile
 #     visits
+#   - sync-players: refreshes cached username/avatar (and a forced value
+#     snapshot) for every player on USBX's RAP leaderboard — the only thing
+#     that otherwise keeps this current is an individual player logging in
 on:
   schedule:
     - cron: '0 */6 * * *' # catalog sync — every 6 hours
     - cron: '0 8 * * *'   # full refresh — once daily at 08:00 UTC
     - cron: '0 23 * * *'  # player snapshot fallback — once daily at 23:00 UTC
+    - cron: '30 8 * * *'  # player profile/avatar sync — once daily at 08:30 UTC
   workflow_dispatch:
     inputs:
       job:
@@ -21,7 +25,7 @@ on:
         required: true
         default: 'both'
         type: choice
-        options: [catalog, refresh, snapshot, both]
+        options: [catalog, refresh, snapshot, players, both]
 
 jobs:
   catalog-sync:
@@ -113,4 +117,36 @@ jobs:
               break
             fi
             page=$((page + 1))
+          done
+
+  sync-players:
+    if: >
+      github.event.schedule == '30 8 * * *' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.job == 'players' || inputs.job == 'both'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Walk player profile/leaderboard sync to completion
+        run: |
+          cursor=""
+          iterations=0
+          max_iterations=500 # safety valve against an infinite loop on a bug
+
+          while [ "$iterations" -lt "$max_iterations" ]; do
+            iterations=$((iterations + 1))
+            extra=""
+            if [ -n "$cursor" ]; then extra="&cursor=$cursor"; fi
+
+            response=$(curl -s \
+              -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
+              "${{ secrets.SITE_URL }}/api/admin/sync-players?secret=${{ secrets.REFRESH_PRICES_SECRET }}${extra}")
+
+            echo "Page $iterations: $response"
+
+            done_flag=$(echo "$response" | jq -r '.done // false')
+            if [ "$done_flag" == "true" ]; then
+              echo "Player sync complete after $iterations page(s)."
+              break
+            fi
+            nextCursor=$(echo "$response" | jq -r '.nextCursor // empty')
+            cursor="$nextCursor"
           done
