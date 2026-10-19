@@ -10,6 +10,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://usbx.trade"),
   title: "usbx.trade | Trading & Items",
   description: "The ultimate trading platform for Untitled Sandbox. Track live values for limiteds, connect with other players via trade ads, calculate fair deals, and climb the wealth leaderboards.",
   openGraph: {
@@ -99,6 +100,8 @@ export default function RootLayout({
         </main>
         <footer style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
           <Link href="/terms" style={{ color: 'var(--text-secondary)' }}>Terms of Service</Link>
+          <span style={{ margin: '0 0.5rem' }}>·</span>
+          <Link href="/privacy" style={{ color: 'var(--text-secondary)' }}>Privacy Policy</Link>
           <span style={{ margin: '0 0.5rem' }}>·</span>
           <span>Not affiliated with USBX or Untitled Sandbox.</span>
         </footer>

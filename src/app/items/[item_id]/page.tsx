@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { UsbxSale } from "@/lib/usbxApi";
+import { fetchMissingItemById } from "@/lib/itemAutoFetch";
 import { getRarity, RARITY_EMOJI, RARITY_LABEL } from "@/lib/rarity";
 import { getCurrentProfile } from "@/lib/roles";
 import ItemCharts from "./ItemCharts";
@@ -131,6 +132,16 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
     console.error("Error:", err);
   }
 
+  // Catalog sync can lag behind a brand new release or miss one on a bad
+  // run. Rather than just 404'ing, try fetching it from USBX once and
+  // inserting it so the page can still render.
+  if (!item) {
+    const fallback = await fetchMissingItemById(itemId);
+    if ('item' in fallback) {
+      item = fallback.item;
+    }
+  }
+
   if (!item) {
     notFound();
   }
@@ -253,7 +264,7 @@ export default async function ItemPage(props: { params: Promise<{ item_id: strin
         {/* Left: Image Box */}
         <div className="card item-image-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: 'var(--bg-tertiary)' }}>
            {item.item_image_url ? (
-             <Image src={item.item_image_url} alt={item.name} fill style={{ objectFit: 'contain', padding: '1.5rem' }} />
+             <Image src={item.item_image_url} alt={item.name} fill sizes="(max-width: 768px) 100vw, 500px" style={{ objectFit: 'contain', padding: '1.5rem' }} />
            ) : (
              <div style={{ color: 'var(--text-secondary)' }}>No Image</div>
            )}

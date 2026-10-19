@@ -243,7 +243,14 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
     <div className="container" style={{ padding: '0', maxWidth: '1200px' }}>
       
       {!inventoryIsPrivate && (
-        <RecordSnapshot userId={userId} totalRap={totalRap} totalValue={totalValue} inventorySnapshot={inventorySnapshot} />
+        <RecordSnapshot
+          userId={userId}
+          totalRap={totalRap}
+          totalValue={totalValue}
+          inventorySnapshot={inventorySnapshot}
+          username={summary.user.username}
+          avatarUrl={avatarUrl}
+        />
       )}
       {/* Runs even with a private inventory — identity-based badges don't need it. */}
       <AwardBadges

@@ -68,7 +68,7 @@ export default async function ProjectedItemsPage() {
               <RarityBadge copies={item.copies_sold} />
 
               {item.item_image_url ? (
-                <Image src={item.item_image_url} alt={item.name} fill style={{ objectFit: 'contain', padding: '1rem' }} />
+                <Image src={item.item_image_url} alt={item.name} fill sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px" style={{ objectFit: 'contain', padding: '1rem' }} />
               ) : (
                 <div style={{ color: 'var(--text-secondary)' }}>No Image</div>
               )}

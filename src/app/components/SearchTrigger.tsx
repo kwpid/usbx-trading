@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import RarityBadge from './RarityBadge';
 import PlayerResultCard, { PlayerResult } from './PlayerResultCard';
-import { searchLimitedsAction } from '@/app/search/actions';
+import { searchLimitedsAction, fetchMissingItemAction } from '@/app/search/actions';
 import { searchPlayers } from '@/app/player-lookup/actions';
 
 type LimitedResult = {
@@ -31,8 +31,12 @@ export default function SearchTrigger() {
   const [limiteds, setLimiteds] = useState<LimitedResult[]>([]);
   const [players, setPlayers] = useState<PlayerResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isFetchingMissing, setIsFetchingMissing] = useState(false);
+  const [missingItemError, setMissingItemError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  const isNumericQuery = /^\d+$/.test(query.trim());
 
   // Focus the input and reset state whenever the modal opens
   useEffect(() => {
@@ -64,6 +68,7 @@ export default function SearchTrigger() {
     }
 
     setIsSearching(true);
+    setMissingItemError(null);
     const handle = setTimeout(async () => {
       try {
         if (tab === 'limiteds') {
@@ -84,6 +89,18 @@ export default function SearchTrigger() {
   const goTo = (href: string) => {
     setOpen(false);
     router.push(href);
+  };
+
+  const handleFetchMissing = async () => {
+    setIsFetchingMissing(true);
+    setMissingItemError(null);
+    const result = await fetchMissingItemAction(query.trim());
+    setIsFetchingMissing(false);
+    if ('error' in result) {
+      setMissingItemError(result.error || 'Could not fetch that item.');
+      return;
+    }
+    goTo(`/items/${result.item.id}`);
   };
 
   return (
@@ -168,6 +185,23 @@ export default function SearchTrigger() {
                 limiteds.length === 0 ? (
                   <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                     No limiteds found.
+                    {isNumericQuery && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          Item #{query.trim()} isn&apos;t in our database yet. It may just be missing a sync.
+                        </div>
+                        <button
+                          className="btn btn-primary"
+                          onClick={handleFetchMissing}
+                          disabled={isFetchingMissing}
+                        >
+                          {isFetchingMissing ? 'Checking USBX…' : `Fetch item #${query.trim()} from USBX`}
+                        </button>
+                        {missingItemError && (
+                          <div style={{ marginTop: '0.75rem', color: 'var(--danger-color)' }}>{missingItemError}</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="search-modal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem' }}>

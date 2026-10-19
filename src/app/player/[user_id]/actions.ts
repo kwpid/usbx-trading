@@ -14,8 +14,27 @@ export async function recordPlayerSnapshot(
   userId: string,
   totalRap: number,
   totalValue: number,
-  inventorySnapshot: SnapshotItem[]
+  inventorySnapshot: SnapshotItem[],
+  username?: string,
+  avatarUrl?: string | null
 ) {
+  // Keeps the leaderboard's cached username/avatar current without waiting
+  // on the daily sync-players cron — every profile visit refreshes it, the
+  // same fields that cron job writes.
+  if (username) {
+    const { error: profileErr } = await supabase
+      .from('profiles')
+      .upsert(
+        { usbx_user_id: Number(userId), usbx_username: username, usbx_avatar_url: avatarUrl ?? null },
+        { onConflict: 'usbx_user_id' }
+      );
+    if (profileErr) {
+      console.error('Failed to refresh cached profile info:', profileErr.message);
+    } else {
+      revalidatePath('/leaderboards');
+    }
+  }
+
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
 
