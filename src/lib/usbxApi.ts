@@ -11,8 +11,16 @@ export function extractUsbxItemId(url: string): string | null {
 
 export class UsbxApiError extends Error {
   status: number;
-  constructor(status: number, path: string) {
-    super(`USBX API request failed (${status}): ${path}`);
+  constructor(
+    status: number,
+    path: string,
+    diag?: { cfRay?: string | null; cfMitigated?: string | null; bodySnippet?: string }
+  ) {
+    const diagParts = [diag?.cfRay && `ray=${diag.cfRay}`, diag?.cfMitigated && `mitigated=${diag.cfMitigated}`]
+      .filter(Boolean)
+      .join(' ');
+    const bodyPart = diag?.bodySnippet ? `: ${diag.bodySnippet}` : '';
+    super(`USBX API request failed (${status}${diagParts ? `, ${diagParts}` : ''}): ${path}${bodyPart}`);
     this.name = 'UsbxApiError';
     this.status = status;
   }
@@ -47,7 +55,16 @@ async function usbxGetRaw(path: string): Promise<any> {
   const { url, headers } = resolveUsbxRequest(path);
   const res = await fetch(url, { cache: 'no-store', headers });
   if (!res.ok) {
-    throw new UsbxApiError(res.status, path);
+    // cf-ray/cf-mitigated plus a body snippet tell us whether this is
+    // Cloudflare's own edge blocking the request (a bot challenge page)
+    // versus USBX's app genuinely rejecting it — otherwise every failure
+    // looks identical from the outside.
+    const bodySnippet = await res.text().then((t) => t.slice(0, 300)).catch(() => '');
+    throw new UsbxApiError(res.status, path, {
+      cfRay: res.headers.get('cf-ray'),
+      cfMitigated: res.headers.get('cf-mitigated'),
+      bodySnippet,
+    });
   }
   const json = await res.json();
   if (json?.status !== 'success') {
