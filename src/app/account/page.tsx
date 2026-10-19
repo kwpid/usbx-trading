@@ -32,7 +32,7 @@ export default async function AccountPage(props: { searchParams: Promise<{ error
         <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', color: 'var(--danger-color)', borderRadius: '6px', fontSize: '0.9rem' }}>
           {errorMessage}
           {searchParams.detail && (
-            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', opacity: 0.8, fontFamily: 'monospace' }}>
+            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', opacity: 0.8, fontFamily: 'monospace', overflowWrap: 'break-word' }}>
               {searchParams.detail}
             </div>
           )}

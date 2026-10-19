@@ -80,7 +80,16 @@ export async function exchangeCodeForToken(opts: {
   try {
     json = JSON.parse(text);
   } catch {
-    throw new UsbxOAuthError(`Non-JSON response from token endpoint (${res.status}): ${text.slice(0, 200)}`);
+    // cf-ray/cf-mitigated confirm whether this is really Cloudflare's own
+    // edge intercepting the request (as opposed to USBX's app erroring out)
+    // and give USBX's support something concrete to look up if it comes to
+    // that — a bare HTML snippet alone isn't actionable.
+    const cfRay = res.headers.get('cf-ray');
+    const cfMitigated = res.headers.get('cf-mitigated');
+    const diag = [cfRay && `ray=${cfRay}`, cfMitigated && `mitigated=${cfMitigated}`].filter(Boolean).join(' ');
+    throw new UsbxOAuthError(
+      `Non-JSON response from token endpoint (${res.status}${diag ? `, ${diag}` : ''}): ${text.slice(0, 500)}`
+    );
   }
   if (!res.ok) {
     throw new UsbxOAuthError(json?.error_description || json?.error || 'Token exchange failed.');
@@ -108,7 +117,12 @@ export async function fetchOAuthUserinfo(accessToken: string): Promise<UsbxUseri
   try {
     json = JSON.parse(text);
   } catch {
-    throw new UsbxOAuthError(`Non-JSON response from userinfo endpoint (${res.status}): ${text.slice(0, 200)}`);
+    const cfRay = res.headers.get('cf-ray');
+    const cfMitigated = res.headers.get('cf-mitigated');
+    const diag = [cfRay && `ray=${cfRay}`, cfMitigated && `mitigated=${cfMitigated}`].filter(Boolean).join(' ');
+    throw new UsbxOAuthError(
+      `Non-JSON response from userinfo endpoint (${res.status}${diag ? `, ${diag}` : ''}): ${text.slice(0, 500)}`
+    );
   }
   if (!res.ok) {
     throw new UsbxOAuthError(json?.error_description || json?.error || 'Could not fetch userinfo.');

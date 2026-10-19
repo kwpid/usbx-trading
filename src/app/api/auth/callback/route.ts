@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     console.error('OAuth callback failed:', detail, err);
     const url = new URL('/account', request.url);
     url.searchParams.set('error', 'oauth_failed');
-    url.searchParams.set('detail', detail.slice(0, 200));
+    url.searchParams.set('detail', detail.slice(0, 600));
     return NextResponse.redirect(url);
   }
 
