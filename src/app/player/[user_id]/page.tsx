@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { fetchProfileSummary } from "@/lib/usbxApi";
+import { fetchProfilePageData, fetchProfileSummary } from "@/lib/usbxApi";
 import { resolveUsbxAssetUrl } from "@/lib/usbxAssets";
 import { getSession } from "@/lib/session";
 import { logout } from "../../account/actions";
@@ -21,22 +21,22 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata(props: { params: Promise<{ user_id: string }> }): Promise<Metadata> {
   const params = await props.params;
   try {
-    const summary = await fetchProfileSummary(params.user_id);
-    const title = `${summary.user.username}'s Profile | usbx.trade`;
-    const description = `View ${summary.user.username}'s limiteds, net worth, and trade history on usbx.trade.`;
+    const profile = await fetchProfilePageData(params.user_id);
+    const title = `${profile.username}'s Profile | usbx.trade`;
+    const description = `View ${profile.username}'s limiteds, net worth, and trade history on usbx.trade.`;
     return {
       title,
       description,
       openGraph: {
         title,
         description,
-        images: summary.user.profile?.avatarUrl ? [summary.user.profile.avatarUrl] : [],
+        images: profile.avatarUrl ? [profile.avatarUrl] : [],
       },
       twitter: {
         card: 'summary_large_image',
         title,
         description,
-        images: summary.user.profile?.avatarUrl ? [summary.user.profile.avatarUrl] : [],
+        images: profile.avatarUrl ? [profile.avatarUrl] : [],
       }
     };
   } catch (err) {
@@ -78,16 +78,27 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
   const params = await props.params;
   const userId = params.user_id;
 
-  let summary;
+  let profile;
   try {
-    summary = await fetchProfileSummary(userId);
+    profile = await fetchProfilePageData(userId);
   } catch (err) {
     // Passing a raw Error to console.error here triggers Next's dev overlay.
-    console.error('Failed to load profile summary:', err instanceof Error ? err.message : err);
+    console.error('Failed to load profile page:', err instanceof Error ? err.message : err);
     notFound();
   }
 
-  const liveInventoryIsPrivate = summary.privacy?.canViewInventory === false;
+  // /api/profiles/{id}/summary (the only source for the live privacy flag)
+  // is currently blocked by USBX's own Cloudflare bot protection on
+  // server-to-server requests. If we can't check it, fail closed — treat
+  // the inventory as private rather than risk showing something the player
+  // may have locked down, since we have no way to confirm either way.
+  let liveInventoryIsPrivate = true;
+  try {
+    const summary = await fetchProfileSummary(userId);
+    liveInventoryIsPrivate = summary.privacy?.canViewInventory === false;
+  } catch (err) {
+    console.error('Failed to load live privacy status, defaulting to private:', err instanceof Error ? err.message : err);
+  }
 
   // bypass_privacy_lock is the account's own opt-in to show their inventory
   // regardless of live USBX privacy — set only by the account holder.
@@ -151,7 +162,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
 
   const inlineBadge = await getInlineBadge(userId);
 
-  const avatarUrl = resolveUsbxAssetUrl(summary.user.profile.avatarUrl || summary.user.profile.headshotUrl);
+  const avatarUrl = resolveUsbxAssetUrl(profile.avatarUrl);
   const usbxProfileUrl = `https://untitled-sandbox.com/user/profile/${userId}`;
 
   let rank: number | null = null;
@@ -248,7 +259,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
           totalRap={totalRap}
           totalValue={totalValue}
           inventorySnapshot={inventorySnapshot}
-          username={summary.user.username}
+          username={profile.username || undefined}
           avatarUrl={avatarUrl}
         />
       )}
@@ -266,7 +277,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
       <div className="card player-page-header" style={{ padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-            {summary.user.username}
+            {profile.username}
             {inlineBadge && <BadgeIcon badge={inlineBadge} size={22} />}
             <a href={usbxProfileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-secondary)', display: 'flex' }}>
               <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
@@ -295,7 +306,7 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
               <div style={{ backgroundColor: '#18181b', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '380px' }}>
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt={summary.user.username} className="player-avatar-img" style={{ width: '100%', height: '380px', objectFit: 'contain' }} />
+                  <img src={avatarUrl} alt={profile.username || 'Avatar'} className="player-avatar-img" style={{ width: '100%', height: '380px', objectFit: 'contain' }} />
                 ) : (
                   <span style={{ color: 'var(--text-secondary)' }}>No Avatar</span>
                 )}
@@ -315,9 +326,9 @@ export default async function PlayerPage(props: { params: Promise<{ user_id: str
               </div>
             </div>
 
-            {summary.user.profile.bio && (
+            {profile.bio && (
               <div className="card" style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.95rem' }}>
-                &ldquo;{summary.user.profile.bio}&rdquo;
+                &ldquo;{profile.bio}&rdquo;
               </div>
             )}
 
