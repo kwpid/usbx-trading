@@ -277,6 +277,52 @@ export async function fetchProfileSummary(userId: string | number): Promise<Usbx
   return usbxGet<UsbxProfileSummary>(`/api/profiles/${userId}/summary?_t=${Date.now()}`);
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
+export type UsbxProfilePageData = {
+  username: string | null;
+  avatarUrl: string | null;
+  bio: string;
+};
+
+// USBX's own /api/profiles/{id}/summary is currently blocked by their
+// Cloudflare bot protection for server-to-server requests (confirmed via
+// cf-ray diagnostics), but the public profile page server-renders username,
+// avatar, and bio directly into plain HTML and isn't subject to the same
+// block. Used only where we need the bio text (account verification) —
+// this doesn't carry privacy/inventory fields, so it's not a substitute
+// for fetchProfileSummary elsewhere.
+export async function fetchProfilePageData(userId: string | number): Promise<UsbxProfilePageData> {
+  const { url, headers } = resolveUsbxRequest(`/user/profile/${userId}`);
+  const res = await fetch(url, { cache: 'no-store', headers });
+  if (!res.ok) {
+    throw new UsbxApiError(res.status, `/user/profile/${userId}`);
+  }
+  const html = await res.text();
+
+  const bioMatch = html.match(/<p class="usbx-muted profile-bio">([\s\S]*?)<\/p>/);
+  const avatarMatch = html.match(/<img src="([^"]+)" alt="[^"]*&#39;s headshot"/) || html.match(/<img src="([^"]+)" alt="[^"]*'s headshot"/);
+  const usernameMatch = html.match(/<meta property="profile:username" content="([^"]*)"/);
+
+  if (!usernameMatch) {
+    throw new Error(`USBX profile page for ${userId} didn't match the expected layout.`);
+  }
+
+  return {
+    username: decodeHtmlEntities(usernameMatch[1]),
+    avatarUrl: avatarMatch ? avatarMatch[1] : null,
+    bio: bioMatch ? decodeHtmlEntities(bioMatch[1]) : '',
+  };
+}
+
 export type UsbxInventoryItem = {
   id: number;
   serialId: number;

@@ -1,7 +1,7 @@
 'use server'
 
 import { createSession, deleteSession, createPendingVerification, getPendingVerification, clearPendingVerification } from '@/lib/session';
-import { fetchProfileSummary } from '@/lib/usbxApi';
+import { fetchProfilePageData } from '@/lib/usbxApi';
 import { resolveUsbxAssetUrl } from '@/lib/usbxAssets';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { finalizeVerifiedAccount } from '@/lib/verifiedAccount';
@@ -31,9 +31,9 @@ export async function startVerification(profileUrl: string, honeypot?: string) {
   }
   const usbxUserId = parseInt(match[1], 10);
 
-  let summary;
+  let profile;
   try {
-    summary = await fetchProfileSummary(usbxUserId);
+    profile = await fetchProfilePageData(usbxUserId);
   } catch (err: any) {
     return { error: err.message || 'Could not find that USBX profile.' };
   }
@@ -45,8 +45,8 @@ export async function startVerification(profileUrl: string, honeypot?: string) {
     success: true,
     code,
     usbxUserId,
-    avatarUrl: resolveUsbxAssetUrl(summary.user.profile.headshotUrl || summary.user.profile.avatarUrl),
-    username: summary.user.username || null,
+    avatarUrl: resolveUsbxAssetUrl(profile.avatarUrl),
+    username: profile.username,
   };
 }
 
@@ -62,20 +62,19 @@ export async function completeVerification() {
     return { error: 'Start verification first. The code expires after 10 minutes.' };
   }
 
-  let summary;
+  let profile;
   try {
-    summary = await fetchProfileSummary(pending.usbxUserId);
+    profile = await fetchProfilePageData(pending.usbxUserId);
   } catch (err: any) {
     return { error: err.message || 'Could not reach that USBX profile.' };
   }
 
-  const bio = summary.user.profile.bio || '';
-  if (!bio.includes(pending.code)) {
+  if (!profile.bio.includes(pending.code)) {
     return { error: 'Verification code not found on that profile. Make sure you saved it to your description at /user/settings and try again.' };
   }
 
-  const username = summary.user.username || null;
-  const avatarUrl = resolveUsbxAssetUrl(summary.user.profile.headshotUrl || summary.user.profile.avatarUrl);
+  const username = profile.username;
+  const avatarUrl = resolveUsbxAssetUrl(profile.avatarUrl);
 
   const result = await finalizeVerifiedAccount(pending.usbxUserId, username, avatarUrl);
   if ('error' in result) {
