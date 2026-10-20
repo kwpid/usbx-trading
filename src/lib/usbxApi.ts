@@ -304,7 +304,12 @@ export async function fetchProfilePageData(userId: string | number): Promise<Usb
   const { url, headers } = resolveUsbxRequest(`/user/profile/${userId}`);
   const res = await fetch(url, { cache: 'no-store', headers });
   if (!res.ok) {
-    throw new UsbxApiError(res.status, `/user/profile/${userId}`);
+    const bodySnippet = await res.text().then((t) => t.slice(0, 300)).catch(() => '');
+    throw new UsbxApiError(res.status, `/user/profile/${userId}`, {
+      cfRay: res.headers.get('cf-ray'),
+      cfMitigated: res.headers.get('cf-mitigated'),
+      bodySnippet,
+    });
   }
   const html = await res.text();
 
